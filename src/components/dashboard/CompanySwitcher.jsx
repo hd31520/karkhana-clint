@@ -34,8 +34,10 @@ const CompanySwitcher = () => {
   }, [currentCompany])
 
   const handleCompanySelect = (company) => {
-    setSelectedCompany(company)
-    selectCompany(company)
+    // Normalize company object to ensure it has both id and _id
+    const normalizedCompany = { ...company, id: company.id || company._id, _id: company._id || company.id }
+    setSelectedCompany(normalizedCompany)
+    selectCompany(normalizedCompany)
   }
 
   const handleAddCompany = () => {
@@ -112,7 +114,7 @@ const CompanySwitcher = () => {
                   </div>
                 </div>
               </div>
-              {selectedCompany?._id === company._id && (
+              {(selectedCompany?._id === company._id || selectedCompany?.id === company.id || selectedCompany?.id === company._id || selectedCompany?._id === company.id) && (
                 <Check className="h-4 w-4 text-primary flex-shrink-0" />
               )}
             </DropdownMenuItem>

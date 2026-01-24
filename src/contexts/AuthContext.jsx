@@ -1,5 +1,5 @@
 import { createContext, useState, useContext, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import api from '@utils/api'
@@ -19,31 +19,46 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null)
   const [loading, setLoading] = useState(true)
   const [currentCompany, setCurrentCompany] = useState(null)
+  const [isInitialized, setIsInitialized] = useState(false)
   const navigate = useNavigate()
+  const location = useLocation()
 
-  // Check if user is logged in on mount
+  // Check if user is logged in on mount - FIXED
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    const storedUser = localStorage.getItem('user')
-    
-    if (token && storedUser) {
-      try {
-        setUser(JSON.parse(storedUser))
-      } catch (error) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
+    const initializeAuth = async () => {
+      const token = localStorage.getItem('token')
+      const storedUser = localStorage.getItem('user')
+      
+      if (token && storedUser) {
+        try {
+          const parsedUser = JSON.parse(storedUser)
+          setUser(parsedUser)
+          
+          // Only restore company if user is not admin
+          if (parsedUser.role !== 'admin') {
+            const storedCompany = localStorage.getItem('currentCompany')
+            if (storedCompany) {
+              try {
+                const parsedCompany = JSON.parse(storedCompany)
+                setCurrentCompany(parsedCompany)
+              } catch (err) {
+                console.error('Failed to parse stored company:', err)
+                localStorage.removeItem('currentCompany')
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Auth initialization error:', error)
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
+          localStorage.removeItem('currentCompany')
+        }
       }
+      setLoading(false)
+      setIsInitialized(true)
     }
-    // Restore selected company from previous session if present
-    const storedCompany = localStorage.getItem('currentCompany')
-    if (storedCompany) {
-      try {
-        setCurrentCompany(JSON.parse(storedCompany))
-      } catch (err) {
-        localStorage.removeItem('currentCompany')
-      }
-    }
-    setLoading(false)
+
+    initializeAuth()
   }, [])
 
   // Login mutation
@@ -53,6 +68,11 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('token', data.token)
       localStorage.setItem('user', JSON.stringify(data.user))
       setUser(data.user)
+      
+      // Clear company on login
+      setCurrentCompany(null)
+      localStorage.removeItem('currentCompany')
+      
       toast.success('Login successful!')
       
       // Redirect based on role
@@ -72,6 +92,12 @@ export const AuthProvider = ({ children }) => {
     mutationFn: (userData) => api.post('/auth/register', userData),
     onSuccess: (data) => {
       setError(null)
+      // If company is returned, store it
+      if (data.company) {
+        const normalizedCompany = { ...data.company, id: data.company.id || data.company._id }
+        setCurrentCompany(normalizedCompany)
+        localStorage.setItem('currentCompany', JSON.stringify(normalizedCompany))
+      }
       toast.success('Registration successful! Please login.')
       navigate('/login')
     },
@@ -101,6 +127,7 @@ export const AuthProvider = ({ children }) => {
   const logout = () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
+    localStorage.removeItem('currentCompany')
     setUser(null)
     setCurrentCompany(null)
     navigate('/login')
@@ -113,20 +140,70 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(userData))
   }
 
-  // Set current company
+  // Set current company - FIXED
   const selectCompany = (company) => {
-    // Normalize company object to include `id` for convenience
-    const normalized = { ...company, id: company.id || company._id }
+    if (!company) {
+      setCurrentCompany(null)
+      localStorage.removeItem('currentCompany')
+      return
+    }
+    
+    // Normalize company object
+    const normalized = { 
+      ...company, 
+      id: company.id || company._id,
+      _id: company._id || company.id
+    }
+    
+    console.log('Selecting company:', normalized)
     setCurrentCompany(normalized)
     localStorage.setItem('currentCompany', JSON.stringify(normalized))
+    
+    // Navigate to dashboard after selecting company
+    if (user?.role !== 'admin') {
+      navigate('/dashboard', { replace: true })
+    }
   }
 
   // Get user's companies
   const { data: companies = [], refetch: refetchCompanies } = useQuery({
     queryKey: ['companies'],
     queryFn: () => api.get('/companies'),
-    enabled: !!user && user.role !== 'admin'
+    enabled: !!user && user.role !== 'admin' && isInitialized
   })
+
+  // Auto-select logic - SIMPLIFIED AND FIXED
+  useEffect(() => {
+    if (!isInitialized || loading || !user || user.role === 'admin') return
+    
+    // Skip if already on company-select page
+    if (location.pathname.includes('company-select')) return
+    
+    // Skip if company is already selected
+    if (currentCompany) return
+    
+    // Only auto-select if user has exactly one company
+    if (Array.isArray(companies) && companies.length === 1) {
+      const firstCompany = companies[0]
+      const normalizedCompany = { 
+        ...firstCompany, 
+        id: firstCompany.id || firstCompany._id, 
+        _id: firstCompany._id || firstCompany.id 
+      }
+      
+      console.log('Auto-selecting company:', normalizedCompany)
+      setCurrentCompany(normalizedCompany)
+      localStorage.setItem('currentCompany', JSON.stringify(normalizedCompany))
+      
+      // Navigate to dashboard
+      if (location.pathname === '/dashboard') {
+        // Already on dashboard, just reload
+        window.location.reload()
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
+    }
+  }, [companies, user, currentCompany, loading, isInitialized, location.pathname, navigate])
 
   const value = {
     user,

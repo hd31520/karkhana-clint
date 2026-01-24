@@ -1,11 +1,23 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import { productService } from '../../services/productService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../../components/ui/dialog'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Badge } from '../../components/ui/badge'
 import { 
@@ -45,6 +57,77 @@ const Products = () => {
     enabled: !!currentCompany,
   })
 
+  const queryClient = useQueryClient()
+  const { showSuccess, showError } = useToast()
+  const [openAddDialog, setOpenAddDialog] = useState(false)
+
+  const [productForm, setProductForm] = useState({
+    name: '',
+    sku: '',
+    barcode: '',
+    category: '',
+    price: { selling: 0, cost: 0 },
+    inventory: { quantity: 0, minStock: 0, unit: 'pcs' },
+    supplier: '',
+    batch: ''
+  })
+  const [isCreating, setIsCreating] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [selectedProductForEdit, setSelectedProductForEdit] = useState(null)
+
+  const handleCreateProduct = async (payload) => {
+    try {
+      setIsCreating(true)
+      const res = await productService.create(payload)
+      showSuccess('Product created')
+      setOpenAddDialog(false)
+      queryClient.invalidateQueries(['products', currentCompany?.id])
+      setProductForm({ name: '', sku: '', barcode: '', category: '', price: { selling: 0, cost: 0 }, inventory: { quantity: 0, minStock: 0, unit: 'pcs' }, supplier: '', batch: '' })
+      return res
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to create product')
+      throw err
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  const handleOpenEdit = (product) => {
+    setIsEditing(true)
+    setSelectedProductForEdit(product)
+    setProductForm({
+      name: product.name || '',
+      sku: product.sku || '',
+      barcode: product.barcode || '',
+      category: product.category?._id || product.category || '',
+      price: { selling: product.price?.selling || 0, cost: product.price?.cost || 0 },
+      inventory: { quantity: product.inventory?.quantity || 0, minStock: product.inventory?.minStock || 0, unit: product.inventory?.unit || 'pcs' },
+      supplier: product.supplier || '',
+      batch: product.batch || ''
+    })
+    setOpenAddDialog(true)
+  }
+
+  const handleUpdateProduct = async (payload) => {
+    if (!selectedProductForEdit) return
+    try {
+      setIsCreating(true)
+      const id = selectedProductForEdit._id || selectedProductForEdit.id
+      await productService.update(id, payload)
+      showSuccess('Product updated')
+      setOpenAddDialog(false)
+      setIsEditing(false)
+      setSelectedProductForEdit(null)
+      queryClient.invalidateQueries(['products', currentCompany?.id])
+      setProductForm({ name: '', sku: '', barcode: '', category: '', price: { selling: 0, cost: 0 }, inventory: { quantity: 0, minStock: 0, unit: 'pcs' }, supplier: '', batch: '' })
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to update product')
+      throw err
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
   const products = data?.products || []
   const total = data?.total ?? products.length
   const totalPages = Math.max(1, Math.ceil((total) / limit))
@@ -57,6 +140,98 @@ const Products = () => {
   })
 
   const totalStockValue = stockValueData?.totalValue ?? 0
+
+  const navigate = useNavigate()
+
+  // Update stock dialog (per-product)
+  const [openUpdateDialog, setOpenUpdateDialog] = useState(false)
+  const [selectedProductForUpdate, setSelectedProductForUpdate] = useState(null)
+  const [updateForm, setUpdateForm] = useState({ type: 'in', quantity: 0, reason: '', location: '' })
+  const [isUpdating, setIsUpdating] = useState(false)
+
+  const handleOpenUpdate = (product) => {
+    setSelectedProductForUpdate(product)
+    setUpdateForm({ type: 'in', quantity: 0, reason: '', location: '' })
+    setOpenUpdateDialog(true)
+  }
+
+  const handleUpdateInventory = async () => {
+    if (!selectedProductForUpdate) return
+    try {
+      setIsUpdating(true)
+      await productService.updateInventory(selectedProductForUpdate._id || selectedProductForUpdate.id, updateForm)
+      showSuccess('Inventory updated')
+      setOpenUpdateDialog(false)
+      queryClient.invalidateQueries(['products', currentCompany?.id])
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to update inventory')
+    } finally {
+      setIsUpdating(false)
+    }
+  }
+
+  // Change price dialog
+  const [openPriceDialog, setOpenPriceDialog] = useState(false)
+  const [selectedProductForPrice, setSelectedProductForPrice] = useState(null)
+  const [priceForm, setPriceForm] = useState({ selling: 0, cost: 0 })
+  const [isChangingPrice, setIsChangingPrice] = useState(false)
+
+  const handleOpenChangePrice = (product) => {
+    setSelectedProductForPrice(product)
+    setPriceForm({ selling: product.price?.selling || 0, cost: product.price?.cost || 0 })
+    setOpenPriceDialog(true)
+  }
+
+  const handleChangePrice = async () => {
+    if (!selectedProductForPrice) return
+    try {
+      setIsChangingPrice(true)
+      await productService.update(selectedProductForPrice._id || selectedProductForPrice.id, { price: priceForm })
+      showSuccess('Price updated')
+      setOpenPriceDialog(false)
+      queryClient.invalidateQueries(['products', currentCompany?.id])
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to update price')
+    } finally {
+      setIsChangingPrice(false)
+    }
+  }
+
+  const handleViewProduct = (product) => {
+    const id = product._id || product.id
+    navigate(`/dashboard/products/${id}`)
+  }
+
+  const handleDeleteProduct = async (product) => {
+    try {
+      await productService.delete(product._id || product.id)
+      showSuccess('Product deleted')
+      queryClient.invalidateQueries(['products', currentCompany?.id])
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to delete product')
+    }
+  }
+  // Delete confirmation dialog state
+  const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false)
+  const [selectedProductForDelete, setSelectedProductForDelete] = useState(null)
+
+  const confirmDeleteProduct = (product) => {
+    setSelectedProductForDelete(product)
+    setOpenDeleteConfirm(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!selectedProductForDelete) return
+    try {
+      await productService.delete(selectedProductForDelete._id || selectedProductForDelete.id)
+      showSuccess('Product deleted')
+      setOpenDeleteConfirm(false)
+      setSelectedProductForDelete(null)
+      queryClient.invalidateQueries(['products', currentCompany?.id])
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to delete product')
+    }
+  }
   const formatCurrency = (value) => {
     // format as BDT with short millions/k
     if (value >= 1_000_000) return `৳${(value / 1_000_000).toFixed(1)}M`
@@ -93,10 +268,154 @@ const Products = () => {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button>
-            <PackagePlus className="mr-2 h-4 w-4" />
-            Add Product
-          </Button>
+          <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <PackagePlus className="mr-2 h-4 w-4" />
+                Add Product
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add Product</DialogTitle>
+                <DialogDescription>Enter product details to create a new product.</DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-2">
+                <div>
+                  <Label>Product Name</Label>
+                  <Input value={productForm.name} onChange={(e) => setProductForm(s => ({...s, name: e.target.value}))} />
+                </div>
+                <div>
+                  <Label>SKU</Label>
+                  <Input value={productForm.sku} onChange={(e) => setProductForm(s => ({...s, sku: e.target.value}))} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Cost Price</Label>
+                    <Input type="number" value={productForm.price.cost} onChange={(e) => setProductForm(s => ({...s, price: {...s.price, cost: Number(e.target.value)}}))} />
+                  </div>
+                  <div>
+                    <Label>Selling Price</Label>
+                    <Input type="number" value={productForm.price.selling} onChange={(e) => setProductForm(s => ({...s, price: {...s.price, selling: Number(e.target.value)}}))} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label>Initial Quantity</Label>
+                    <Input type="number" value={productForm.inventory.quantity} onChange={(e) => setProductForm(s => ({...s, inventory: {...s.inventory, quantity: Number(e.target.value)}}))} />
+                  </div>
+                  <div>
+                    <Label>Min Stock</Label>
+                    <Input type="number" value={productForm.inventory.minStock} onChange={(e) => setProductForm(s => ({...s, inventory: {...s.inventory, minStock: Number(e.target.value)}}))} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Supplier</Label>
+                  <Input value={productForm.supplier} onChange={(e) => setProductForm(s => ({...s, supplier: e.target.value}))} />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenAddDialog(false)}>Cancel</Button>
+                <Button onClick={() => {
+                  // Build payload
+                  const payload = {
+                    companyId: currentCompany?.id,
+                    name: productForm.name,
+                    sku: productForm.sku,
+                    barcode: productForm.barcode,
+                    category: productForm.category,
+                    price: productForm.price,
+                    inventory: productForm.inventory,
+                    supplier: productForm.supplier,
+                    batch: productForm.batch
+                  }
+                  if (isEditing) {
+                    handleUpdateProduct(payload)
+                  } else {
+                    handleCreateProduct(payload)
+                  }
+                }} disabled={isCreating}>{isCreating ? (isEditing ? 'Updating...' : 'Creating...') : (isEditing ? 'Update' : 'Create')}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Delete confirmation dialog */}
+          <Dialog open={openDeleteConfirm} onOpenChange={setOpenDeleteConfirm}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Delete product</DialogTitle>
+                <DialogDescription>Are you sure you want to delete {selectedProductForDelete?.name || 'this product'}? This action can be undone by re-activating the product in the database.</DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenDeleteConfirm(false)}>Cancel</Button>
+                <Button className="text-red-600" onClick={handleConfirmDelete}>Delete</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+          {/* Update Stock Dialog (for product rows) */}
+          <Dialog open={openUpdateDialog} onOpenChange={setOpenUpdateDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Update Stock</DialogTitle>
+                <DialogDescription>Adjust inventory for {selectedProductForUpdate?.name || '-'}</DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-2">
+                <div>
+                  <Label>Type</Label>
+                  <select value={updateForm.type} onChange={(e) => setUpdateForm(s => ({...s, type: e.target.value}))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                    <option value="in">Add (In)</option>
+                    <option value="out">Remove (Out)</option>
+                    <option value="adjustment">Set Quantity</option>
+                  </select>
+                </div>
+                <div>
+                  <Label>Quantity</Label>
+                  <Input type="number" value={updateForm.quantity} onChange={(e) => setUpdateForm(s => ({...s, quantity: Number(e.target.value)}))} />
+                </div>
+                <div>
+                  <Label>Reason</Label>
+                  <Input value={updateForm.reason} onChange={(e) => setUpdateForm(s => ({...s, reason: e.target.value}))} />
+                </div>
+                <div>
+                  <Label>Location (optional)</Label>
+                  <Input value={updateForm.location} onChange={(e) => setUpdateForm(s => ({...s, location: e.target.value}))} />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenUpdateDialog(false)}>Cancel</Button>
+                <Button onClick={handleUpdateInventory} disabled={isUpdating}>{isUpdating ? 'Updating...' : 'Apply'}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Change Price Dialog (for product rows) */}
+          <Dialog open={openPriceDialog} onOpenChange={setOpenPriceDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Change Price</DialogTitle>
+                <DialogDescription>Update price for {selectedProductForPrice?.name || '-'}</DialogDescription>
+              </DialogHeader>
+
+              <div className="grid gap-2">
+                <div>
+                  <Label>Cost Price</Label>
+                  <Input type="number" value={priceForm.cost} onChange={(e) => setPriceForm(s => ({...s, cost: Number(e.target.value)}))} />
+                </div>
+                <div>
+                  <Label>Selling Price</Label>
+                  <Input type="number" value={priceForm.selling} onChange={(e) => setPriceForm(s => ({...s, selling: Number(e.target.value)}))} />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setOpenPriceDialog(false)}>Cancel</Button>
+                <Button onClick={handleChangePrice} disabled={isChangingPrice}>{isChangingPrice ? 'Updating...' : 'Save'}</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
 
@@ -121,7 +440,6 @@ const Products = () => {
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalStockValue)}</div>
             <p className="text-xs text-muted-foreground">
-              <TrendingUp className="inline h-3 w-3 text-green-600" /> +12%
             </p>
           </CardContent>
         </Card>
@@ -268,24 +586,24 @@ const Products = () => {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleViewProduct(product)}>
                           <Eye className="mr-2 h-4 w-4" />
                           View Details
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenEdit(product)}>
                           <Edit className="mr-2 h-4 w-4" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenUpdate(product)}>
                           <Package className="mr-2 h-4 w-4" />
                           Update Stock
                         </DropdownMenuItem>
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleOpenChangePrice(product)}>
                           <Tag className="mr-2 h-4 w-4" />
                           Change Price
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-red-600">
+                        <DropdownMenuItem className="text-red-600" onClick={() => confirmDeleteProduct(product)}>
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete
                         </DropdownMenuItem>
@@ -381,19 +699,19 @@ const Products = () => {
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => setOpenAddDialog(true)}>
                 <PackagePlus className="mb-2 h-5 w-5" />
                 <span className="text-sm">Add Product</span>
               </Button>
-              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => showSuccess('Import not implemented yet')}>
                 <Download className="mb-2 h-5 w-5" />
                 <span className="text-sm">Import Products</span>
               </Button>
-              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => setOpenPriceDialog(true)}>
                 <Tag className="mb-2 h-5 w-5" />
                 <span className="text-sm">Update Prices</span>
               </Button>
-              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+              <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => navigate('/dashboard/inventory')}>
                 <Package className="mb-2 h-5 w-5" />
                 <span className="text-sm">Stock Count</span>
               </Button>

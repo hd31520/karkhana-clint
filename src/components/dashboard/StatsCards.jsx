@@ -82,8 +82,8 @@ const StatsCards = ({ data = {}, items = null }) => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stat.value}</div>
-            <div className="flex items-center text-xs text-muted-foreground">
-              {stat.change ? (
+            {stat.change ? (
+              <div className="flex items-center text-xs text-muted-foreground">
                 <span
                   className={cn(
                     'mr-1 flex items-center',
@@ -94,11 +94,9 @@ const StatsCards = ({ data = {}, items = null }) => {
                 >
                   {stat.trend === 'up' ? '↗' : '↘'} {stat.change}
                 </span>
-              ) : (
-                <span className="mr-1 flex items-center text-muted-foreground">—</span>
-              )}
-              from last month
-            </div>
+                from last month
+              </div>
+            ) : null}
           </CardContent>
         </Card>
       ))}

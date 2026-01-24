@@ -323,10 +323,6 @@ const AdminCompanies = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">৳78,500</div>
-            <p className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-green-600" />
-              +23% from last month
-            </p>
           </CardContent>
         </Card>
       </div>

@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -35,6 +36,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../../components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../../components/ui/select'
 
 const Salary = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -48,6 +64,21 @@ const Salary = () => {
   })
   const [selectedEmployees, setSelectedEmployees] = useState([])
   const { currentCompany } = useAuth()
+  const { showSuccess, showError } = useToast()
+  const queryClient = useQueryClient()
+
+  // Payment Dialog State
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [selectedSalary, setSelectedSalary] = useState(null)
+  const [processDialogOpen, setProcessDialogOpen] = useState(false)
+  const [paymentForm, setPaymentForm] = useState({ method: 'cash', notes: '', amount: '' })
+
+  const [processParams, setProcessParams] = useState({
+    otRate: '',
+    bonusRate: '',
+    advance: '',
+    taxRate: ''
+  })
 
   const toggleEmployee = (id) => {
     setSelectedEmployees((prev) => {
@@ -73,6 +104,107 @@ const Salary = () => {
   })
 
   const workers = workersData?.workers || []
+
+  // Pay Salary Mutation (Existing Record)
+  const paySalaryMutation = useMutation({
+    mutationFn: ({ id, data }) => api.put(`/salary/${id}/pay`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['salaries', currentCompany?.id])
+      setPaymentDialogOpen(false)
+      showSuccess('Salary marked as paid successfully')
+      setSelectedSalary(null)
+    },
+    onError: (error) => {
+      showError(error.response?.data?.message || 'Failed to record payment')
+    }
+  })
+
+  // Process Salary Mutation (New/Update Record)
+  const processSalaryMutation = useMutation({
+    mutationFn: (data) => api.post('/salary/pay', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries(['salaries', currentCompany?.id])
+    },
+    onError: (error) => {
+      console.error('Process salary error:', error)
+    }
+  })
+
+  const handlePayClick = (salary) => {
+    setSelectedSalary(salary)
+    setPaymentForm({
+      method: 'cash',
+      notes: '',
+      amount: salary.netSalary - (salary.payment?.paidAmount || 0)
+    })
+    setPaymentDialogOpen(true)
+  }
+
+  const submitPayment = () => {
+    if (!selectedSalary) return
+    paySalaryMutation.mutate({
+      id: selectedSalary._id,
+      data: {
+        paymentMethod: paymentForm.method,
+        paidAmount: paymentForm.amount,
+        notes: paymentForm.notes
+      }
+    })
+  }
+
+  const handleBulkProcess = async () => {
+    if (selectedEmployees.length === 0) {
+      showError('Please select employees to process')
+      return
+    }
+
+    const [year, month] = salaryMonth.split('-')
+    let successCount = 0
+    let failCount = 0
+
+    for (const empId of selectedEmployees) {
+      const worker = workers.find(w => (w._id || w.id) === empId)
+      if (!worker) continue
+
+      const baseSalaryVal = parseFloat(worker.salary?.baseSalary || worker.baseSalary || 0)
+      const baseSalary = isNaN(baseSalaryVal) ? 0 : baseSalaryVal
+      
+      const bonusRate = parseFloat(processParams.bonusRate) || 0
+      const bonus = baseSalary * (bonusRate / 100)
+      
+      const advance = parseFloat(processParams.advance) || 0
+      const taxRate = parseFloat(processParams.taxRate) || 0
+      const deductions = advance + (baseSalary * (taxRate / 100))
+
+      try {
+        await processSalaryMutation.mutateAsync({
+          workerId: empId,
+          companyId: currentCompany.id,
+          month: parseInt(month),
+          year: parseInt(year),
+          baseSalary,
+          bonus,
+          deductions,
+          overtimeAmount: 0,
+          paymentMethod: 'cash',
+          note: 'Bulk processing'
+        })
+        successCount++
+      } catch (err) {
+        console.error(`Failed to process salary for worker ${empId}:`, err)
+        failCount++
+      }
+    }
+
+    if (successCount > 0) {
+      showSuccess(`Successfully processed salary for ${successCount} employees`)
+      setSelectedEmployees([])
+      setProcessDialogOpen(false)
+    }
+    if (failCount > 0) {
+      showError(`Failed to process ${failCount} employees`)
+    }
+  }
 
   const totalSelectedAmount = useMemo(() => {
     if (!workers || workers.length === 0) return 0
@@ -124,7 +256,7 @@ const Salary = () => {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button>
+          <Button onClick={() => setProcessDialogOpen(true)}>
             <CreditCard className="mr-2 h-4 w-4" />
             Process Salary
           </Button>
@@ -184,9 +316,8 @@ const Salary = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="payroll">Payroll</TabsTrigger>
-          <TabsTrigger value="processing">Processing</TabsTrigger>
           <TabsTrigger value="reports">Reports</TabsTrigger>
         </TabsList>
         
@@ -282,7 +413,7 @@ const Salary = () => {
                             {!(salary.payment?.status === 'paid') && (
                               <>
                                 <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-green-600">
+                                <DropdownMenuItem className="text-green-600" onClick={() => handlePayClick(salary)}>
                                   <CreditCard className="mr-2 h-4 w-4" />
                                   Mark as Paid
                                 </DropdownMenuItem>
@@ -381,102 +512,6 @@ const Salary = () => {
           </div>
         </TabsContent>
 
-        <TabsContent value="processing">
-          <div className="grid gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Process Monthly Salary</CardTitle>
-                <CardDescription>
-                  Calculate and process salary for selected month
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="salary-month">Select Month</Label>
-                      <Input id="salary-month" type="month" value={salaryMonth} onChange={(e) => setSalaryMonth(e.target.value)} />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="payment-date">Payment Date</Label>
-                      <Input id="payment-date" type="date" />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Salary Components</Label>
-                    <div className="rounded-lg border p-4">
-                      <div className="grid grid-cols-4 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="ot-rate">Overtime Rate</Label>
-                          <Input id="ot-rate" placeholder="৳350" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="bonus-rate">Bonus %</Label>
-                          <Input id="bonus-rate" placeholder="5%" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="advance-ded">Advance Deduction</Label>
-                          <Input id="advance-ded" placeholder="৳0" />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="tax-rate">Tax Rate</Label>
-                          <Input id="tax-rate" placeholder="10%" />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Select Employees</Label>
-                    <div className="rounded-lg border">
-                      <div className="max-h-60 overflow-y-auto p-4">
-                        {workers.map((employee) => {
-                          const id = employee._id || employee.id
-                          const checked = selectedEmployees.includes(id)
-                          return (
-                            <div key={id} className="flex items-center justify-between py-2">
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="checkbox"
-                                  id={`emp-${id}`}
-                                  checked={checked}
-                                  onChange={() => toggleEmployee(id)}
-                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                />
-                                <Label htmlFor={`emp-${id}`}>{employee.user?.name || employee.name}</Label>
-                              </div>
-                              <Badge variant="outline">{employee.salary?.baseSalary ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(employee.salary.baseSalary) : '৳0'}</Badge>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold">Total Amount</h4>
-                        <p className="text-sm text-muted-foreground">For {selectedEmployees.length} selected employees</p>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-2xl font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(totalSelectedAmount || 0)}</div>
-                        <div className="text-sm text-muted-foreground">Net payable amount</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3">
-                    <Button variant="outline">Calculate Only</Button>
-                    <Button>Process Payment</Button>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
         <TabsContent value="reports">
           <div className="grid gap-6">
             <Card>
@@ -541,6 +576,161 @@ const Salary = () => {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Payment Dialog */}
+      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Mark Salary as Paid</DialogTitle>
+            <DialogDescription>
+              Record payment for {selectedSalary?.worker?.user?.name || 'Employee'}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <Label>Payment Method</Label>
+              <Select 
+                value={paymentForm.method} 
+                onValueChange={(v) => setPaymentForm({...paymentForm, method: v})}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="bank">Bank Transfer</SelectItem>
+                  <SelectItem value="mobile_banking">Mobile Banking</SelectItem>
+                  <SelectItem value="check">Check</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Amount</Label>
+              <Input 
+                type="number" 
+                value={paymentForm.amount} 
+                onChange={(e) => setPaymentForm({...paymentForm, amount: e.target.value})}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
+            <Button onClick={submitPayment} disabled={paySalaryMutation.isPending}>Confirm Payment</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Process Salary Dialog */}
+      <Dialog open={processDialogOpen} onOpenChange={setProcessDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Process Monthly Salary</DialogTitle>
+            <DialogDescription>
+              Calculate and process salary for selected month
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="salary-month">Select Month</Label>
+                <Input id="salary-month" type="month" value={salaryMonth} onChange={(e) => setSalaryMonth(e.target.value)} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment-date">Payment Date</Label>
+                <Input id="payment-date" type="date" />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Salary Components</Label>
+              <div className="rounded-lg border p-4">
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="ot-rate">Overtime Rate</Label>
+                    <Input 
+                      id="ot-rate" 
+                      placeholder="৳350" 
+                      value={processParams.otRate}
+                      onChange={(e) => setProcessParams(prev => ({ ...prev, otRate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="bonus-rate">Bonus %</Label>
+                    <Input 
+                      id="bonus-rate" 
+                      placeholder="5%" 
+                      value={processParams.bonusRate}
+                      onChange={(e) => setProcessParams(prev => ({ ...prev, bonusRate: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="advance-ded">Advance Deduction</Label>
+                    <Input 
+                      id="advance-ded" 
+                      placeholder="৳0" 
+                      value={processParams.advance}
+                      onChange={(e) => setProcessParams(prev => ({ ...prev, advance: e.target.value }))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="tax-rate">Tax Rate</Label>
+                    <Input 
+                      id="tax-rate" 
+                      placeholder="10%" 
+                      value={processParams.taxRate}
+                      onChange={(e) => setProcessParams(prev => ({ ...prev, taxRate: e.target.value }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Select Employees</Label>
+              <div className="rounded-lg border">
+                <div className="max-h-60 overflow-y-auto p-4">
+                  {workers.map((employee) => {
+                    const id = employee._id || employee.id
+                    const checked = selectedEmployees.includes(id)
+                    return (
+                      <div key={id} className="flex items-center justify-between py-2">
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="checkbox"
+                            id={`emp-${id}`}
+                            checked={checked}
+                            onChange={() => toggleEmployee(id)}
+                            className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                          />
+                          <Label htmlFor={`emp-${id}`}>{employee.user?.name || employee.name}</Label>
+                        </div>
+                        <Badge variant="outline">{employee.salary?.baseSalary ? new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(employee.salary.baseSalary) : '৳0'}</Badge>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-semibold">Total Amount</h4>
+                  <p className="text-sm text-muted-foreground">For {selectedEmployees.length} selected employees</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(totalSelectedAmount || 0)}</div>
+                  <div className="text-sm text-muted-foreground">Net payable amount</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setProcessDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleBulkProcess} disabled={processSalaryMutation.isPending}>
+              {processSalaryMutation.isPending ? 'Processing...' : 'Process Payment'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

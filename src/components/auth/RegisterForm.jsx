@@ -46,34 +46,18 @@ const RegisterForm = () => {
   }, [companyType, setValue])
 
   const onSubmit = (data) => {
-    // Prepare data for backend API
+    // Send registration data including company info
     const registrationData = {
       name: data.name,
       email: data.email,
       phone: data.phone,
       password: data.password,
-      role: data.role || 'owner', // Ensure role is sent
-      
-      // Optional: Send additional data if your backend supports it
-      // These might need to be saved separately in another API call
-      companyInfo: {
-        companyName: data.companyName,
-        companyType: data.companyType,
-        factoryCategory: data.factoryCategory,
-        initialWorkerCount: data.initialWorkerCount,
-      }
-    }
-
-    // If your backend doesn't accept extra fields, send only required ones:
-    const basicRegistrationData = {
-      name: data.name,
-      email: data.email,
-      phone: data.phone,
-      password: data.password,
       role: data.role || 'owner',
+      companyName: data.companyName || undefined,
+      companyType: data.companyType || undefined,
     }
 
-    registerUser(basicRegistrationData) // Send only what backend expects
+    registerUser(registrationData)
   }
 
   return (

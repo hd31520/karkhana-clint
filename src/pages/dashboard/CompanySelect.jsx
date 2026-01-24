@@ -22,7 +22,7 @@ const CompanySelect = () => {
     subscriptionPlan: 'standard'
   })
   
-  const { user, selectCompany } = useAuth()
+  const { user, selectCompany, currentCompany } = useAuth()
   const { showSuccess, showError } = useToast()
   const navigate = useNavigate()
 
@@ -41,8 +41,9 @@ const CompanySelect = () => {
     onSuccess: (data) => {
       showSuccess('Company created successfully!')
       refetch()
-      // Select the newly created company
-      selectCompany(data.company)
+      // Normalize company object to ensure it has both id and _id
+      const normalizedCompany = { ...data.company, id: data.company.id || data.company._id, _id: data.company._id || data.company.id }
+      selectCompany(normalizedCompany)
       navigate('/dashboard')
     },
     onError: (error) => {
@@ -50,22 +51,23 @@ const CompanySelect = () => {
     }
   })
 
-  // If the user already has companies, auto-select the first one and navigate
-  // This supports the flow where an owner already has a company at account creation
+  // Don't auto-select when user already has a current company
+  // Only auto-select if no company is currently selected AND user has exactly one company
   useEffect(() => {
-    // Auto-select only when the user has exactly one company.
-    // This avoids silently navigating away when users have multiple companies.
-    if (!companies || companies.length !== 1) return
-    // If a company is already selected, do nothing
-    if (selectedCompany) return
-    const only = companies[0]
-    if (only) {
-      setSelectedCompany(only)
-      // Persist selection and navigate to dashboard
-      selectCompany(only)
-      navigate('/dashboard')
+    if (!currentCompany && companies && companies.length === 1) {
+      const onlyCompany = companies[0]
+      if (onlyCompany && !selectedCompany) {
+        // Auto-select but don't navigate automatically
+        // Let user see and confirm their company
+        const normalizedCompany = { 
+          ...onlyCompany, 
+          id: onlyCompany.id || onlyCompany._id, 
+          _id: onlyCompany._id || onlyCompany.id 
+        }
+        setSelectedCompany(normalizedCompany)
+      }
     }
-  }, [companies, selectedCompany, selectCompany, navigate])
+  }, [companies, currentCompany, selectedCompany])
 
   const filteredCompanies = companies.filter(company =>
     company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -95,7 +97,9 @@ const CompanySelect = () => {
 
   const handleContinue = () => {
     if (!selectedCompany) return
-    selectCompany(selectedCompany)
+    // Normalize company object to ensure it has both id and _id
+    const normalizedCompany = { ...selectedCompany, id: selectedCompany.id || selectedCompany._id, _id: selectedCompany._id || selectedCompany.id }
+    selectCompany(normalizedCompany)
     navigate('/dashboard')
   }
 
@@ -143,11 +147,14 @@ const CompanySelect = () => {
                   <Card
                     key={company._id || company.id}
                     className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedCompany?._id === company._id
+                      (selectedCompany?._id === company._id || selectedCompany?.id === company.id || selectedCompany?.id === company._id || selectedCompany?._id === company.id)
                         ? 'border-primary ring-2 ring-primary/20'
                         : ''
                     }`}
-                    onClick={() => setSelectedCompany(company)}
+                    onClick={() => {
+                      const normalizedCompany = { ...company, id: company.id || company._id, _id: company._id || company.id }
+                      setSelectedCompany(normalizedCompany)
+                    }}
                   >
                     <CardHeader>
                       <div className="flex items-start justify-between">
@@ -163,7 +170,7 @@ const CompanySelect = () => {
                             </CardDescription>
                           </div>
                         </div>
-                        {selectedCompany?._id === company._id && (
+                        {(selectedCompany?._id === company._id || selectedCompany?.id === company.id || selectedCompany?.id === company._id || selectedCompany?._id === company.id) && (
                           <div className="rounded-full bg-primary p-1">
                             <Check className="h-4 w-4 text-white" />
                           </div>

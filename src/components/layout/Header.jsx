@@ -16,7 +16,7 @@ import { Bell, Moon, Sun, User, Settings, LogOut, Home } from 'lucide-react'
 import { Badge } from '../ui/badge'
 
 const Header = ({ admin = false, onMobileToggle = () => {} }) => {
-  const { user, logout, currentCompany } = useAuth()
+  const { user, logout, currentCompany, isAuthenticated } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
   const [notifications] = useState(3)
@@ -35,6 +35,8 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
   }
 
   return (
+    // Hide header completely when user is not authenticated
+    !isAuthenticated ? null : (
     <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-gray-900/95 dark:border-gray-800">
       <div className="flex h-16 items-center justify-between px-4 md:px-6">
         <div className="flex items-center gap-4">
@@ -138,6 +140,7 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
         </div>
       </div>
     </header>
+    )
   )
 }
 

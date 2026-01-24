@@ -64,12 +64,14 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              <div className="flex items-center text-xs text-muted-foreground">
-                <span className={`mr-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                  {stat.trend === 'up' ? '↗' : '↘'} {stat.change}
-                </span>
-                from last month
-              </div>
+              {stat.change ? (
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <span className={`mr-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {stat.trend === 'up' ? '↗' : '↘'} {stat.change}
+                  </span>
+                  from last month
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         ))}

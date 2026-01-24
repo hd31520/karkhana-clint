@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import { productService } from '../../services/productService'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -35,6 +37,16 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
+
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../../components/ui/dialog'
 
 const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -92,6 +104,65 @@ const Inventory = () => {
     }
     return Object.values(map).map(c => ({ ...c, value: `৳${Number(c.value).toLocaleString()}` }))
   }, [products])
+
+  // Derived categories for selects
+  const categoriesList = useMemo(() => {
+    const map = new Map()
+    for (const p of products) {
+      if (p.category) {
+        const id = p.category._id || p.category
+        const name = p.category.name || String(p.category)
+        if (!map.has(id)) map.set(id, name)
+      }
+    }
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }))
+  }, [products])
+
+  // Update stock dialog state
+  const [openUpdateDialog, setOpenUpdateDialog] = useState(false)
+  const [selectedProduct, setSelectedProduct] = useState(null)
+  const [updateForm, setUpdateForm] = useState({ type: 'in', quantity: 0, reason: '', location: '' })
+  const { showSuccess, showError } = useToast()
+
+  const handleOpenUpdate = (product) => {
+    setSelectedProduct(product)
+    setUpdateForm({ type: 'in', quantity: 0, reason: '', location: '' })
+    setOpenUpdateDialog(true)
+  }
+
+  const handleQuickAction = (action) => {
+    switch(action) {
+      case 'scan':
+        setActiveTab('items')
+        showSuccess('Scan mode: use search to find products')
+        break
+      case 'transfer':
+        showError('Transfer modal not implemented yet')
+        break
+      case 'receive':
+        setActiveTab('items')
+        showSuccess('Select a product and click "Update Stock" to receive stock')
+        break
+      case 'history':
+        setActiveTab('movement')
+        break
+      default:
+        showError('Action not implemented')
+    }
+  }
+
+  const handleUpdateInventory = async () => {
+    if (!selectedProduct) return
+    try {
+      await productService.updateInventory(selectedProduct._id || selectedProduct.id, updateForm)
+      showSuccess('Inventory updated')
+      setOpenUpdateDialog(false)
+      queryClient.invalidateQueries(['products', currentCompany?.id])
+      queryClient.invalidateQueries(['inventory-history', currentCompany?.id])
+    } catch (err) {
+      showError(err.response?.data?.message || 'Failed to update inventory')
+    }
+  }
 
   const filteredInventory = products.filter(item =>
     (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -162,10 +233,6 @@ const Inventory = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{formatCurrency(totalStockValue)}</div>
-            <p className="flex items-center text-xs text-muted-foreground">
-              <TrendingUp className="mr-1 h-3 w-3 text-green-600" />
-              +8.5% from last month
-            </p>
           </CardContent>
         </Card>
         <Card>
@@ -175,10 +242,6 @@ const Inventory = () => {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{productsTotal}</div>
-            <p className="flex items-center text-xs text-muted-foreground">
-              <TrendingDown className="mr-1 h-3 w-3 text-red-600" />
-              -3 items from last count
-            </p>
           </CardContent>
         </Card>
         <Card>
@@ -199,9 +262,30 @@ const Inventory = () => {
             <RefreshCw className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">2.8x</div>
+            <div className="text-2xl font-bold">
+              {(() => {
+                // Compute simple turnover = total outgoing / average stock
+                try {
+                  const totalOutgoing = history.reduce((sum, h) => {
+                    if (!h || !h.type) return sum
+                    if (h.type === 'out' || h.type === 'sale' || h.type === 'transfer') return sum + Math.abs(h.quantity || 0)
+                    return sum
+                  }, 0)
+
+                  const totalStock = products.reduce((s, p) => s + (p.inventory?.quantity || 0), 0)
+                  const avgStock = products.length ? totalStock / products.length : 0
+
+                  if (!avgStock || avgStock === 0) return '—'
+
+                  const turnover = totalOutgoing / Math.max(1, avgStock)
+                  return `${turnover.toFixed(1)}x`
+                } catch (e) {
+                  return '—'
+                }
+              })()}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Annual inventory turnover
+              Inventory turnover (Outgoing / Avg stock)
             </p>
           </CardContent>
         </Card>
@@ -348,6 +432,7 @@ const Inventory = () => {
                     <TableHead>Stock Value</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Last Updated</TableHead>
+                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -393,6 +478,11 @@ const Inventory = () => {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground">{lastUpdated ? new Date(lastUpdated).toLocaleString() : '-'}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" onClick={() => handleOpenUpdate(item)}>Update Stock</Button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     )
                   })}
@@ -401,6 +491,44 @@ const Inventory = () => {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Update Stock Dialog */}
+        <Dialog open={openUpdateDialog} onOpenChange={setOpenUpdateDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Update Stock</DialogTitle>
+              <DialogDescription>Adjust inventory for {selectedProduct?.name || '-'}.</DialogDescription>
+            </DialogHeader>
+
+            <div className="grid gap-2">
+              <div>
+                <Label>Type</Label>
+                <select value={updateForm.type} onChange={(e) => setUpdateForm(s => ({...s, type: e.target.value}))} className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+                  <option value="in">Add (In)</option>
+                  <option value="out">Remove (Out)</option>
+                  <option value="adjustment">Set Quantity</option>
+                </select>
+              </div>
+              <div>
+                <Label>Quantity</Label>
+                <Input type="number" value={updateForm.quantity} onChange={(e) => setUpdateForm(s => ({...s, quantity: Number(e.target.value)}))} />
+              </div>
+              <div>
+                <Label>Reason</Label>
+                <Input value={updateForm.reason} onChange={(e) => setUpdateForm(s => ({...s, reason: e.target.value}))} />
+              </div>
+              <div>
+                <Label>Location (optional)</Label>
+                <Input value={updateForm.location} onChange={(e) => setUpdateForm(s => ({...s, location: e.target.value}))} />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOpenUpdateDialog(false)}>Cancel</Button>
+              <Button onClick={handleUpdateInventory}>Apply</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         <TabsContent value="movement">
           <Card>
@@ -513,9 +641,9 @@ const Inventory = () => {
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     >
                       <option value="">Select parent category</option>
-                      <option value="furniture">Furniture</option>
-                      <option value="electronics">Electronics</option>
-                      <option value="textile">Textile</option>
+                      {categoriesList.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
                     </select>
                   </div>
                   
