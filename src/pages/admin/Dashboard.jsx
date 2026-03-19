@@ -13,8 +13,27 @@ import {
 } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../utils/api'
+import { useAuth } from '../../contexts/AuthContext'
+import { canAccessAdmin } from '../../lib/roleUtils'
 
 const AdminDashboard = () => {
+  const { user } = useAuth()
+
+  // Check access
+  if (!canAccessAdmin(user?.role)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You don't have permission to access the Admin Dashboard.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['admin', 'stats'],
     queryFn: () => api.get('/admin/stats').then((res) => res.data),

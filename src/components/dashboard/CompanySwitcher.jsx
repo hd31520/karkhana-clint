@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { ChevronDown, Building, Plus, Check, LogOut } from 'lucide-react'
+import { ChevronDown, Building, Check, LogOut } from 'lucide-react'
 import { Button } from '../ui/button'
 import {
   DropdownMenu,
@@ -14,42 +14,35 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import api from '../../utils/api'
 
+const normalizeCompany = (company) => ({
+  ...company,
+  id: company?.id || company?._id,
+  _id: company?._id || company?.id
+})
+
+const getCompanyId = (company) => company?.id || company?._id || null
+
 const CompanySwitcher = () => {
   const { currentCompany, selectCompany, logout } = useAuth()
   const navigate = useNavigate()
   const [selectedCompany, setSelectedCompany] = useState(currentCompany)
 
-  // Fetch user's companies
   const { data: companiesData, isLoading } = useQuery({
     queryKey: ['companies'],
     queryFn: () => api.get('/companies'),
-    enabled: true // Always fetch to keep companies list updated
+    enabled: true
   })
 
-  const companies = companiesData?.companies || []
+  const companies = (companiesData?.companies || []).map(normalizeCompany)
 
-  // Update selected company when currentCompany changes
   useEffect(() => {
-    setSelectedCompany(currentCompany)
+    setSelectedCompany(currentCompany ? normalizeCompany(currentCompany) : null)
   }, [currentCompany])
 
   const handleCompanySelect = (company) => {
-    // Normalize company object to ensure it has both id and _id
-    const normalizedCompany = { ...company, id: company.id || company._id, _id: company._id || company.id }
+    const normalizedCompany = normalizeCompany(company)
     setSelectedCompany(normalizedCompany)
     selectCompany(normalizedCompany)
-  }
-
-  const handleAddCompany = () => {
-    navigate('/dashboard/company-select?tab=create-new')
-  }
-
-  const handleManageCompanies = () => {
-    navigate('/dashboard/company-select')
-  }
-
-  const handleLogout = () => {
-    logout()
   }
 
   if (isLoading) {
@@ -59,7 +52,7 @@ const CompanySwitcher = () => {
         className="w-full justify-start gap-2 border-0 px-2 text-left hover:bg-transparent"
         disabled
       >
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+        <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-primary"></div>
         <span className="text-sm">Loading...</span>
       </Button>
     )
@@ -81,7 +74,7 @@ const CompanySwitcher = () => {
               {selectedCompany ? (
                 <>
                   {selectedCompany.businessType || selectedCompany.type || 'Business'}
-                  {selectedCompany.subscription?.plan && ` • ${selectedCompany.subscription.plan} Plan`}
+                  {selectedCompany.subscription?.plan ? ` - ${selectedCompany.subscription.plan} Plan` : ''}
                 </>
               ) : (
                 'Select a company'
@@ -94,7 +87,7 @@ const CompanySwitcher = () => {
       <DropdownMenuContent align="start" className="w-[300px]">
         <DropdownMenuLabel>Your Companies</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        
+
         {companies.length > 0 ? (
           companies.map((company) => (
             <DropdownMenuItem
@@ -107,15 +100,15 @@ const CompanySwitcher = () => {
                   <Building className="h-4 w-4 text-primary" />
                 </div>
                 <div className="max-w-[200px]">
-                  <div className="font-medium truncate">{company.name}</div>
-                  <div className="text-xs text-muted-foreground truncate">
+                  <div className="truncate font-medium">{company.name}</div>
+                  <div className="truncate text-xs text-muted-foreground">
                     {company.workerCount || 0} workers
-                    {company.subscription?.plan && ` • ${company.subscription.plan} Plan`}
+                    {company.subscription?.plan ? ` - ${company.subscription.plan} Plan` : ''}
                   </div>
                 </div>
               </div>
-              {(selectedCompany?._id === company._id || selectedCompany?.id === company.id || selectedCompany?.id === company._id || selectedCompany?._id === company.id) && (
-                <Check className="h-4 w-4 text-primary flex-shrink-0" />
+              {getCompanyId(selectedCompany) === getCompanyId(company) && (
+                <Check className="h-4 w-4 flex-shrink-0 text-primary" />
               )}
             </DropdownMenuItem>
           ))
@@ -124,18 +117,13 @@ const CompanySwitcher = () => {
             No companies found
           </DropdownMenuItem>
         )}
-        
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleAddCompany} className="py-2">
-          <Plus className="mr-2 h-4 w-4" />
-          Add New Company
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={handleManageCompanies} className="py-2">
+
+        <DropdownMenuItem onClick={() => navigate('/dashboard/company-select')} className="py-2">
           <Building className="mr-2 h-4 w-4" />
-          Manage All Companies
+          Switch Company
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout} className="py-2 text-red-600">
+        <DropdownMenuItem onClick={logout} className="py-2 text-red-600">
           <LogOut className="mr-2 h-4 w-4" />
           Logout
         </DropdownMenuItem>

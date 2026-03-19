@@ -6,6 +6,8 @@ import { Label } from '../../components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Badge } from '../../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
+import { useAuth } from '../../contexts/AuthContext'
+import { canAccessAdmin } from '../../lib/roleUtils'
 import { 
   Users,
   UserPlus,
@@ -31,6 +33,24 @@ import {
 } from '../../components/ui/dropdown-menu'
 
 const AdminUsers = () => {
+  const { user } = useAuth()
+
+  // Check access
+  if (!canAccessAdmin(user?.role)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You don't have permission to access the Users page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
+
   const [searchTerm, setSearchTerm] = useState('')
   
   const users = [

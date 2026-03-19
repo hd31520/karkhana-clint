@@ -16,6 +16,7 @@ const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 const CompleteRegistration = lazy(() => import('./pages/auth/CompleteRegistration'))
 const SetPassword = lazy(() => import('./pages/auth/SetPassword'))
+const PaymentResult = lazy(() => import('./pages/payments/PaymentResult'))
 const Dashboard = lazy(() => import('./pages/dashboard/Overview'))
 const CompanySelect = lazy(() => import('./pages/dashboard/CompanySelect'))
 const Profile = lazy(() => import('./pages/dashboard/Profile'))
@@ -50,6 +51,7 @@ function App() {
               <Route path="reset-password" element={<ResetPassword />} />
               <Route path="complete-registration/:token" element={<CompleteRegistration />} />
               <Route path="set-password" element={<SetPassword />} />
+              <Route path="payments/result" element={<PaymentResult />} />
             </Route>
 
             {/* Dashboard Routes */}

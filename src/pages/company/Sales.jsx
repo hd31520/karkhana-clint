@@ -46,6 +46,8 @@ const Sales = () => {
     queryKey: ['products-list', currentCompany?.id],
     queryFn: () => api.get('/products', { params: { companyId: currentCompany?.id, limit: 200 } }),
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const products = productsRes?.products || []
@@ -54,6 +56,8 @@ const Sales = () => {
     queryKey: ['sales-stats', currentCompany?.id],
     queryFn: () => api.get('/sales/stats', { params: { companyId: currentCompany?.id } }),
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const stats = statsRes?.stats || { totalSales: 0, totalOrders: 0, activeCustomers: 0, avgOrder: 0, monthly: [] }
@@ -62,6 +66,8 @@ const Sales = () => {
     queryKey: ['orders', currentCompany?.id, page, limit, searchTerm],
     queryFn: () => api.get('/sales/orders', { params: { companyId: currentCompany?.id, page, limit, search: searchTerm } }),
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const orders = ordersRes?.orders || []
@@ -71,6 +77,8 @@ const Sales = () => {
     queryKey: ['memos', currentCompany?.id, page, limit],
     queryFn: () => api.get('/sales/memos', { params: { companyId: currentCompany?.id, page, limit } }),
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const memos = memosRes?.memos || []
@@ -79,6 +87,8 @@ const Sales = () => {
     queryKey: ['transactions', currentCompany?.id, page, limit],
     queryFn: () => api.get('/payments/transactions', { params: { companyId: currentCompany?.id, page: 1, limit: 10 } }),
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const transactions = transactionsRes?.transactions || []
@@ -299,24 +309,24 @@ const Sales = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Sales Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Sales Management</h1>
           <p className="text-muted-foreground">Manage orders, process sales, and track payments</p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
           <Dialog>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 New Sale
               </Button>
             </DialogTrigger>
-            <DialogContent className="max-w-4xl">
+            <DialogContent className="max-w-[calc(100vw-1rem)] sm:max-w-4xl">
               <DialogHeader>
                 <DialogTitle>Create New Sale</DialogTitle>
                 <DialogDescription>
@@ -374,7 +384,7 @@ const Sales = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-1 gap-2 sm:grid-cols-3">
           <TabsTrigger value="orders">Orders</TabsTrigger>
           <TabsTrigger value="memos">Memos</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
@@ -383,24 +393,24 @@ const Sales = () => {
         <TabsContent value="orders" className="space-y-6">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <CardTitle>All Orders</CardTitle>
                   <CardDescription>
                     Manage and track all customer orders
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search orders..."
-                      className="w-64 pl-9"
+                      className="w-full pl-9"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  <Button variant="outline" size="icon">
+                  <Button variant="outline" size="icon" className="self-end sm:self-auto">
                     <Filter className="h-4 w-4" />
                   </Button>
                 </div>

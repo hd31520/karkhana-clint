@@ -27,119 +27,109 @@ import {
 
 const Dashboard = () => {
   const { currentCompany } = useAuth()
+  const companyId = currentCompany?.id || currentCompany?._id
 
   // Fetch recent orders (sales), inventory, inventory alerts, customers, and transactions
-  const { data: ordersRes, isLoading: ordersLoading } = useQuery({
-    queryKey: ['orders', currentCompany?.id],
+  const { data: ordersRes } = useQuery({
+    queryKey: ['orders', companyId],
     queryFn: async () => {
-      const res = await api.get('/sales/orders', { params: { companyId: currentCompany?.id, limit: 6 } })
+      const res = await api.get('/sales/orders', { params: { companyId, limit: 6 } })
       return res
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
   const { data: inventoryRes, isLoading: inventoryLoading } = useQuery({
-    queryKey: ['inventory', currentCompany?.id],
+    queryKey: ['inventory', companyId],
     queryFn: async () => {
-      const res = await api.get('/inventory', { params: { companyId: currentCompany?.id, limit: 6 } })
+      const res = await api.get('/inventory', { params: { companyId, limit: 6 } })
       return res.data ? res.data : res
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
-  const { data: alertsRes, isLoading: alertsLoading } = useQuery({
-    queryKey: ['inventoryAlerts', currentCompany?.id],
+  const { data: alertsRes } = useQuery({
+    queryKey: ['inventoryAlerts', companyId],
     queryFn: async () => {
-      const res = await api.get('/inventory/alerts', { params: { companyId: currentCompany?.id } })
+      const res = await api.get('/inventory/alerts', { params: { companyId } })
       return res.data ? res.data : res
     },
-    enabled: !!currentCompany,
-  })
-
-  const { data: customersRes, isLoading: customersLoading } = useQuery({
-    queryKey: ['customers', currentCompany?.id],
-    queryFn: async () => {
-      const res = await api.get('/customers', { params: { companyId: currentCompany?.id, limit: 6 } })
-      return res.data ? res.data : res
-    },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
   const { data: transactionsRes, isLoading: transactionsLoading } = useQuery({
-    queryKey: ['transactions', currentCompany?.id],
+    queryKey: ['transactions', companyId],
     queryFn: async () => {
-      const res = await api.get('/payments/transactions', { params: { companyId: currentCompany?.id, limit: 50 } })
+      const res = await api.get('/payments/transactions', { params: { companyId, limit: 50 } })
       return res.data ? res.data : res
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
   const orders = ordersRes?.orders || []
   const inventory = inventoryRes?.inventory || []
   const alerts = alertsRes?.alerts || { lowStock: 0, outOfStock: 0, products: { lowStock: [], outOfStock: [] } }
-  const customers = customersRes?.customers || []
   const transactions = transactionsRes?.transactions || []
 
   const { data: workersRes } = useQuery({
-    queryKey: ['workers', currentCompany?.id],
+    queryKey: ['workers', companyId],
     queryFn: async () => {
-      const res = await api.get('/workers', { params: { companyId: currentCompany?.id, limit: 6 } })
+      const res = await api.get('/workers', { params: { companyId, limit: 6 } })
       return res.data ? res.data : res
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
   const { data: productsRes } = useQuery({
-    queryKey: ['products', currentCompany?.id],
+    queryKey: ['products', companyId],
     queryFn: async () => {
-      const res = await api.get('/products', { params: { companyId: currentCompany?.id, limit: 6 } })
+      const res = await api.get('/products', { params: { companyId, limit: 6 } })
       return res
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
   const workers = workersRes?.workers || []
   const products = productsRes?.products || []
   // Fetch aggregated stats from server to drive dashboard
-  const { data: companyStatsRes, isLoading: companyStatsLoading } = useQuery({
-    queryKey: ['companyStats', currentCompany?.id],
+  const { data: companyStatsRes } = useQuery({
+    queryKey: ['companyStats', companyId],
     queryFn: async () => {
-      if (!currentCompany) return null
-      return await api.get(`/companies/${currentCompany.id}/stats`)
+      if (!companyId) return null
+      return await api.get(`/companies/${companyId}/stats`)
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
-  const { data: salesStatsRes, isLoading: salesStatsLoading } = useQuery({
-    queryKey: ['salesStats', currentCompany?.id],
+  const { data: salesStatsRes } = useQuery({
+    queryKey: ['salesStats', companyId],
     queryFn: async () => {
-      if (!currentCompany) return null
-      return await api.get('/sales/stats', { params: { companyId: currentCompany?.id } })
+      if (!companyId) return null
+      return await api.get('/sales/stats', { params: { companyId } })
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
-  const { data: attendanceRes, isLoading: attendanceLoading } = useQuery({
-    queryKey: ['attendanceToday', currentCompany?.id],
+  const { data: attendanceRes } = useQuery({
+    queryKey: ['attendanceToday', companyId],
     queryFn: async () => {
-      if (!currentCompany) return null
-      return await api.get('/workers/attendance/today', { params: { companyId: currentCompany?.id } })
+      if (!companyId) return null
+      return await api.get('/workers/attendance/today', { params: { companyId } })
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
   // Fetch salaries for the current month to compute monthlySalary
   const now = new Date()
   const thisMonth = now.getMonth() + 1
   const thisYear = now.getFullYear()
-  const { data: salariesRes, isLoading: salariesLoading } = useQuery({
-    queryKey: ['salaries', currentCompany?.id, thisMonth, thisYear],
+  const { data: salariesRes } = useQuery({
+    queryKey: ['salaries', companyId, thisMonth, thisYear],
     queryFn: async () => {
-      if (!currentCompany) return null
-      // request a reasonably large limit to sum up this month's salaries
-      return await api.get('/salary', { params: { companyId: currentCompany?.id, month: thisMonth, year: thisYear, limit: 200 } })
+      if (!companyId) return null
+      return await api.get('/salary', { params: { companyId, month: thisMonth, year: thisYear, limit: 200 } })
     },
-    enabled: !!currentCompany,
+    enabled: !!companyId,
   })
 
   const statsData = useMemo(() => ({

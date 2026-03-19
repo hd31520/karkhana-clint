@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
+import { canAccessPage } from '../../lib/roleUtils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -63,9 +64,25 @@ const Salary = () => {
     return `${d.getFullYear()}-${mm}`
   })
   const [selectedEmployees, setSelectedEmployees] = useState([])
-  const { currentCompany } = useAuth()
+  const { currentCompany, user } = useAuth()
   const { showSuccess, showError } = useToast()
   const queryClient = useQueryClient()
+
+  // Check access
+  if (!canAccessPage(user?.role, 'salary')) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You don't have permission to access the Salary page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
 
   // Payment Dialog State
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)

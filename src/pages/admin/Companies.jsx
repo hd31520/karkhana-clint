@@ -5,6 +5,12 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Badge } from '../../components/ui/badge'
+import { useAuth } from '../../contexts/AuthContext'
+import { canAccessAdmin } from '../../lib/roleUtils'
+import { useMutation } from '@tanstack/react-query'
+import { toast } from 'react-hot-toast'
+import api from '../../lib/api'
+import PaymentDialog from '../../components/shared/PaymentDialog'
 import { 
   Building,
   Building2,
@@ -41,10 +47,31 @@ import { Textarea } from '../../components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../../components/ui/select'
 
 const AdminCompanies = () => {
+  const { user } = useAuth()
+
+  // Check access
+  if (!canAccessAdmin(user?.role)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Access Denied</CardTitle>
+            <CardDescription>
+              You don't have permission to access the Companies page.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    )
+  }
+
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCompany, setSelectedCompany] = useState(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [activeTab, setActiveTab] = useState('overview')
+  const [selectedPlan, setSelectedPlan] = useState(null)
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
+  const [paymentData, setPaymentData] = useState(null)
   
   const companies = [
     {
@@ -254,6 +281,35 @@ const AdminCompanies = () => {
     // Here you would typically generate and download CSV/Excel
     console.log('Exporting company data...')
     alert('Exporting company data...')
+  }
+
+  // Mutation to update company plan
+  const updatePlanMutation = useMutation({
+    mutationFn: ({ companyId, plan }) => api.put(`/subscriptions/company/${companyId}`, { plan }),
+    onSuccess: (res) => {
+      // Check if payment URL is present (means payment is required)
+      if (res.data?.payment?.paymentUrl) {
+        // Store payment data and open dialog
+        setPaymentData(res.data)
+        setIsPaymentDialogOpen(true)
+        toast.success('Preparing payment gateway...')
+      } else {
+        // Free plan selected
+        toast.success('Subscription plan updated successfully!')
+        setSelectedPlan(null)
+      }
+    },
+    onError: (err) => {
+      toast.error(err.response?.data?.message || 'Failed to update plan. Please try again.')
+    }
+  })
+
+  const handleUpdatePlan = () => {
+    if (!selectedCompany?.id || !selectedPlan) {
+      toast.error('Please select a plan to update')
+      return
+    }
+    updatePlanMutation.mutate({ companyId: selectedCompany.id, plan: selectedPlan })
   }
 
   return (
@@ -565,7 +621,46 @@ const AdminCompanies = () => {
 
                 <TabsContent value="subscription" className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Subscription Details</Label>
+                    <div className="flex items-center justify-between">
+                      <Label>Subscription Details</Label>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="outline" size="sm">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuLabel>Subscription Actions</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => console.log('View plan details')}>
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Plan Details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => console.log('Upgrade plan')}>
+                            <TrendingUp className="mr-2 h-4 w-4" />
+                            Upgrade Plan
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => console.log('Downgrade plan')}>
+                            <TrendingDown className="mr-2 h-4 w-4" />
+                            Downgrade Plan
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => console.log('Change payment method')}>
+                            <DollarSign className="mr-2 h-4 w-4" />
+                            Change Payment Method
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => console.log('View billing history')}>
+                            <Calendar className="mr-2 h-4 w-4" />
+                            View Billing History
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-red-600">
+                            <X className="mr-2 h-4 w-4" />
+                            Cancel Subscription
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                     <div className="rounded-lg border p-4">
                       <div className="space-y-4">
                         <div className="grid gap-4 md:grid-cols-2">
@@ -607,8 +702,49 @@ const AdminCompanies = () => {
 
                   <div className="space-y-2">
                     <Label>Change Subscription Plan</Label>
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <Card className={`cursor-pointer transition-all ${selectedCompany.subscription.plan === 'Basic' ? 'ring-2 ring-green-500' : 'hover:shadow-md'}`}>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Basic Plan</CardTitle>
+                          <CardDescription>৳200/month</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="text-xs text-muted-foreground">
+                            <div>• 10 Workers</div>
+                            <div>• Basic Support</div>
+                            <div>• Standard Features</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className={`cursor-pointer transition-all ${selectedCompany.subscription.plan === 'Standard' ? 'ring-2 ring-blue-500' : 'hover:shadow-md'}`}>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Standard Plan</CardTitle>
+                          <CardDescription>৳300/month</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="text-xs text-muted-foreground">
+                            <div>• 50 Workers</div>
+                            <div>• Email Support</div>
+                            <div>• Advanced Features</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Card className={`cursor-pointer transition-all ${selectedCompany.subscription.plan === 'Premium' ? 'ring-2 ring-purple-500' : 'hover:shadow-md'}`}>
+                        <CardHeader className="pb-3">
+                          <CardTitle className="text-sm">Premium Plan</CardTitle>
+                          <CardDescription>৳500/month</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                          <div className="text-xs text-muted-foreground">
+                            <div>• Unlimited Workers</div>
+                            <div>• 24/7 Priority Support</div>
+                            <div>• Premium Features</div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
                     <div className="flex items-center gap-3">
-                      <Select defaultValue={selectedCompany.subscription.plan.toLowerCase()}>
+                      <Select value={selectedPlan || selectedCompany.subscription.plan.toLowerCase()} onValueChange={setSelectedPlan}>
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder="Select plan" />
                         </SelectTrigger>
@@ -618,7 +754,9 @@ const AdminCompanies = () => {
                           <SelectItem value="premium">Premium (৳500/month)</SelectItem>
                         </SelectContent>
                       </Select>
-                      <Button>Update Plan</Button>
+                      <Button onClick={handleUpdatePlan} disabled={updatePlanMutation.isPending || !selectedPlan || selectedPlan === selectedCompany.subscription.plan.toLowerCase()}>
+                        {updatePlanMutation.isPending ? 'Updating...' : 'Update Plan'}
+                      </Button>
                     </div>
                   </div>
                 </TabsContent>
@@ -800,6 +938,13 @@ const AdminCompanies = () => {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Payment Dialog */}
+      <PaymentDialog 
+        isOpen={isPaymentDialogOpen}
+        onOpenChange={setIsPaymentDialogOpen}
+        paymentData={paymentData}
+      />
     </div>
   )
 }

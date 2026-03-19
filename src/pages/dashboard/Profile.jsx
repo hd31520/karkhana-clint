@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/ta
 import { Avatar, AvatarFallback, AvatarImage } from '../../components/ui/avatar'
 import { Badge } from '../../components/ui/badge'
 import { Separator } from '../../components/ui/separator'
+import PaymentDialog from '../../components/shared/PaymentDialog'
 import { 
   User, 
   Mail, 
@@ -44,6 +45,8 @@ const Profile = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [isUploading, setIsUploading] = useState(false)
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false)
+  const [paymentData, setPaymentData] = useState(null)
   
   // Get route parameters and auth context
   const params = useParams()
@@ -51,6 +54,7 @@ const Profile = () => {
   const { currentCompany } = useAuth()
   const queryClient = useQueryClient()
   const fileInputRef = useRef(null)
+  const companyId = routeCompanyId || currentCompany?._id || currentCompany?.id
 
   // Fetch user profile
   const { data: profileData, isLoading: profileLoading } = useQuery({
@@ -63,24 +67,20 @@ const Profile = () => {
   const userData = profileData?.user || {}
 
   // Fetch subscription data
-  const { data: subscriptionResp, isLoading: subscriptionLoading } = useQuery({
-    queryKey: ['subscription', routeCompanyId || currentCompany?.id || currentCompany?._id],
+  const { data: subscriptionResp } = useQuery({
+    queryKey: ['subscription', companyId],
     queryFn: async () => {
       try {
-        const cid = routeCompanyId || currentCompany?.id || currentCompany?._id
-        if (!cid) {
-          // Return empty subscription if no company is selected
+        if (!companyId) {
           return { subscription: null }
         }
-        const response = await api.get(`/subscriptions/company/${cid}`)
-        return response.data
+        return await api.get(`/subscriptions/company/${companyId}`)
       } catch (error) {
         console.error('Subscription fetch error:', error)
-        // Return empty subscription on error
         return { subscription: null }
       }
     },
-    enabled: !!(routeCompanyId || currentCompany),
+    enabled: !!companyId,
     retry: 1,
   })
 
@@ -92,46 +92,39 @@ const Profile = () => {
     queryKey: ['plans'],
     queryFn: async () => {
       try {
-        const response = await api.get('/subscriptions/plans')
-        return response.data
+        return await api.get('/subscriptions/plans')
       } catch (error) {
         console.error('Plans fetch error:', error)
-        // Return default plans if API fails
         return {
           plans: {
-            free: {
-              name: 'Free',
-              monthlyFee: 0,
-              workerLimit: 5,
+            basic: {
+              name: 'Basic',
+              monthlyFee: 200,
+              workerLimit: 10,
               features: [
-                'Up to 5 workers',
-                'Basic analytics',
-                'Email support',
-                '1 company'
+                'Up to 10 workers',
+                'Attendance and payroll tracking',
+                'Inventory and sales management'
               ]
             },
-            pro: {
-              name: 'Pro',
-              monthlyFee: 299,
-              workerLimit: 50,
+            standard: {
+              name: 'Standard',
+              monthlyFee: 350,
+              workerLimit: 25,
               features: [
-                'Up to 50 workers',
-                'Advanced analytics',
-                'Priority support',
-                'Multiple companies',
-                'Custom reports'
+                'Everything in Basic',
+                'Advanced reports and analytics',
+                'Priority support'
               ]
             },
-            enterprise: {
-              name: 'Enterprise',
-              monthlyFee: 999,
-              workerLimit: Infinity,
+            premium: {
+              name: 'Premium',
+              monthlyFee: 600,
+              workerLimit: 100,
               features: [
-                'Unlimited workers',
-                'All Pro features',
-                '24/7 phone support',
-                'Custom integrations',
-                'Dedicated account manager'
+                'Everything in Standard',
+                'Unlimited branches support',
+                'Premium onboarding assistance'
               ]
             }
           }
@@ -141,6 +134,67 @@ const Profile = () => {
   })
 
   const plans = plansResp?.plans || {}
+  const handlePaymentWindowResult = useCallback((payload) => {
+    if (!payload?.status) {
+      return
+    }
+
+    setIsPaymentDialogOpen(false)
+    setPaymentData(null)
+    localStorage.removeItem('subscription_payment_result')
+
+    queryClient.invalidateQueries({ queryKey: ['subscription'] })
+    queryClient.invalidateQueries({ queryKey: ['plans'] })
+
+    if (payload.status === 'success') {
+      toast.success(`Payment verified. Transaction: ${payload.transactionId}`)
+    } else if (payload.status === 'cancelled') {
+      toast.error('Payment was cancelled before completion.')
+    } else {
+      toast.error(payload.message || 'Payment failed verification.')
+    }
+  }, [queryClient])
+
+  useEffect(() => {
+    const handleMessage = (event) => {
+      if (event.origin !== window.location.origin) {
+        return
+      }
+
+      if (event.data?.type === 'subscription-payment-result') {
+        handlePaymentWindowResult(event.data.payload)
+      }
+    }
+
+    const handleStorage = (event) => {
+      if (event.key !== 'subscription_payment_result' || !event.newValue) {
+        return
+      }
+
+      try {
+        handlePaymentWindowResult(JSON.parse(event.newValue))
+      } catch (error) {
+        console.error('Failed to parse payment result from storage:', error)
+      }
+    }
+
+    const storedResult = localStorage.getItem('subscription_payment_result')
+    if (storedResult) {
+      try {
+        handlePaymentWindowResult(JSON.parse(storedResult))
+      } catch (error) {
+        console.error('Failed to parse stored payment result:', error)
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    window.addEventListener('storage', handleStorage)
+
+    return () => {
+      window.removeEventListener('message', handleMessage)
+      window.removeEventListener('storage', handleStorage)
+    }
+  }, [handlePaymentWindowResult])
 
   // Fetch notification settings
   const { data: notificationsResp } = useQuery({ 
@@ -200,7 +254,6 @@ const Profile = () => {
     // Check different possible locations for the API key
     const apiKey = 
       import.meta.env?.VITE_IMGBB_API_KEY || 
-      process.env.REACT_APP_IMGBB_API_KEY ||
       window.env?.REACT_APP_IMGBB_API_KEY ||
       localStorage.getItem('imgbb_api_key') ||
       'your_imgbb_api_key_here' // Replace with your actual key
@@ -294,7 +347,7 @@ const Profile = () => {
   // Update profile mutation
   const updateMutation = useMutation({
     mutationFn: (payload) => api.put('/users/me', payload),
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success('Profile updated successfully')
       queryClient.invalidateQueries(['profile'])
       setIsEditing(false)
@@ -308,12 +361,18 @@ const Profile = () => {
   const changePlanMutation = useMutation({
     mutationFn: ({ companyId, plan }) => api.put(`/subscriptions/company/${companyId}`, { plan }),
     onSuccess: (res) => {
-      toast.success('Subscription updated successfully!')
-      queryClient.invalidateQueries(['subscription'])
-      queryClient.invalidateQueries(['plans'])
+      if (res?.payment?.paymentUrl) {
+        setPaymentData(res)
+        setIsPaymentDialogOpen(true)
+        toast.success('Payment session created. Complete the checkout in the popup.')
+      } else {
+        toast.success('Subscription updated successfully!')
+        queryClient.invalidateQueries({ queryKey: ['subscription'] })
+        queryClient.invalidateQueries({ queryKey: ['plans'] })
+      }
     },
     onError: (err) => {
-      toast.error(err.response?.data?.message || 'Failed to change plan. Please try again.')
+      toast.error(err?.message || 'Failed to change plan. Please try again.')
     }
   })
 
@@ -478,7 +537,6 @@ const Profile = () => {
 
   // Handle plan change
   const handlePlanChange = useCallback((planKey) => {
-    const companyId = routeCompanyId || currentCompany?._id || currentCompany?.id
     if (!companyId) {
       toast.error('Please select a company first')
       return
@@ -491,7 +549,7 @@ const Profile = () => {
     if (plan && confirm(`Are you sure you want to change to ${plan.name} plan for ৳${plan.monthlyFee}/month?`)) {
       changePlanMutation.mutate({ companyId, plan: planKey })
     }
-  }, [routeCompanyId, currentCompany, changePlanMutation, plans])
+  }, [companyId, changePlanMutation, plans])
 
   // Format date
   const formatDate = useCallback((dateString) => {
@@ -503,7 +561,7 @@ const Profile = () => {
         month: 'long',
         day: 'numeric'
       })
-    } catch (error) {
+    } catch {
       return 'Invalid date'
     }
   }, [])
@@ -511,11 +569,11 @@ const Profile = () => {
   // Get plan icon
   const getPlanIcon = useCallback((planName) => {
     switch (planName?.toLowerCase()) {
-      case 'enterprise':
-        return <Crown className="h-5 w-5" />
-      case 'pro':
-        return <Zap className="h-5 w-5" />
       case 'premium':
+        return <Crown className="h-5 w-5" />
+      case 'standard':
+        return <Zap className="h-5 w-5" />
+      case 'basic':
         return <Star className="h-5 w-5" />
       default:
         return <Users className="h-5 w-5" />
@@ -525,11 +583,11 @@ const Profile = () => {
   // Get plan color
   const getPlanColor = useCallback((planName) => {
     switch (planName?.toLowerCase()) {
-      case 'enterprise':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
-      case 'pro':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
       case 'premium':
+        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300'
+      case 'standard':
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300'
+      case 'basic':
         return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300'
       default:
         return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
@@ -985,7 +1043,7 @@ const Profile = () => {
                             <p className="text-muted-foreground">
                               {subscriptionData.plan ? 
                                 `৳${plans[subscriptionData.plan]?.monthlyFee || 0}/month` : 
-                                'You are currently on the free trial'}
+                                'Choose a plan to start your subscription'}
                             </p>
                           </div>
                         </div>
@@ -1012,7 +1070,7 @@ const Profile = () => {
                               <Badge 
                                 variant={
                                   subscriptionData.status === 'active' ? 'default' :
-                                  subscriptionData.status === 'canceled' ? 'destructive' :
+                                  subscriptionData.status === 'cancelled' ? 'destructive' :
                                   subscriptionData.status === 'pending' ? 'secondary' : 'outline'
                                 }
                                 className="text-lg py-1 px-3"
@@ -1112,7 +1170,7 @@ const Profile = () => {
                       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                         {Object.entries(plans).map(([key, plan]) => {
                           const isCurrent = subscriptionData.plan === key
-                          const isPopular = key === 'pro'
+                          const isPopular = key === 'standard'
                           
                           return (
                             <div 
@@ -1144,9 +1202,6 @@ const Profile = () => {
                                     <span className="text-3xl font-bold">৳{plan.monthlyFee}</span>
                                     <span className="text-muted-foreground ml-2">/month</span>
                                   </div>
-                                  {plan.monthlyFee === 0 && (
-                                    <p className="text-sm text-green-600 font-medium mt-1">Free forever</p>
-                                  )}
                                 </div>
                                 
                                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-4">
@@ -1210,17 +1265,25 @@ const Profile = () => {
                         <div>Status</div>
                       </div>
                       
-                      {/* Mock billing history - replace with real data */}
-                      <div className="grid grid-cols-4 gap-4 p-4 border-t hover:bg-accent">
-                        <div>{formatDate(new Date().toISOString())}</div>
-                        <div>{subscriptionData.plan || 'Free'} Plan</div>
-                        <div>৳{plans[subscriptionData.plan]?.monthlyFee || 0}</div>
-                        <div>
-                          <Badge variant="default">Paid</Badge>
-                        </div>
-                      </div>
-                      
-                      {(!subscriptionData.plan || subscriptionData.plan === 'free') && (
+                      {(subscriptionData.paymentHistory || []).length > 0 ? (
+                        [...subscriptionData.paymentHistory].reverse().map((payment, index) => (
+                          <div key={`${payment.transactionId || 'payment'}-${index}`} className="grid grid-cols-4 gap-4 p-4 border-t hover:bg-accent">
+                            <div>{formatDate(payment.date)}</div>
+                            <div className="space-y-1">
+                              <div className="capitalize">{subscriptionData.plan || 'Subscription'} Plan</div>
+                              {payment.transactionId && (
+                                <div className="text-xs text-muted-foreground">{payment.transactionId}</div>
+                              )}
+                            </div>
+                            <div>BDT {payment.amount || 0}</div>
+                            <div>
+                              <Badge variant={payment.status === 'success' ? 'default' : payment.status === 'pending' ? 'secondary' : 'outline'}>
+                                {payment.status}
+                              </Badge>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
                         <div className="p-8 text-center text-muted-foreground">
                           <CreditCard className="h-12 w-12 mx-auto mb-3 opacity-50" />
                           <p>No billing history available</p>
@@ -1259,6 +1322,13 @@ const Profile = () => {
 
         {/* Right sidebar - Keep your existing code if any */}
       </div>
+
+      {/* Payment Dialog */}
+      <PaymentDialog 
+        isOpen={isPaymentDialogOpen}
+        onOpenChange={setIsPaymentDialogOpen}
+        paymentData={paymentData}
+      />
     </div>
   )
 }

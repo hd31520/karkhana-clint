@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
+import { getAllowedRoles as getRoleHierarchy, canAddWorker as canAddWorkerUtil, filterWorkersByRole, getViewableRoles } from '../../lib/roleUtils'
 import { useToast } from '../../contexts/ToastContext'
 import {
   Card,
@@ -117,6 +118,7 @@ const Workers = () => {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [viewMode, setViewMode] = useState('auto') // 'mobile', 'tablet', 'desktop', 'auto'
   const [isDownloading, setIsDownloading] = useState(false)
+  const [markingAttendanceFor, setMarkingAttendanceFor] = useState(null)
   
   const { user: currentUser, currentCompany } = useAuth()
   const navigate = useNavigate()
@@ -311,23 +313,14 @@ const Workers = () => {
   // Inline form errors for add/invite
   const [addErrors, setAddErrors] = useState({})
   const [inviteErrors, setInviteErrors] = useState({})
-
   // Get user's allowed roles based on hierarchy
   const getAllowedRoles = () => {
-    const userRole = currentUser?.role || 'worker'
-    
-    const roleHierarchy = {
-      'owner': ['owner', 'manager', 'group_leader', 'worker', 'sales_executive'],
-      'manager': ['manager', 'group_leader', 'worker', 'sales_executive'],
-      'group_leader': ['group_leader', 'worker', 'sales_executive'],
-      'worker': ['worker']
-    }
-
-    return roleHierarchy[userRole] || []
+    return getRoleHierarchy(currentUser?.role || 'worker')
   }
 
   const allowedRoles = getAllowedRoles()
-  const canAddWorker = allowedRoles.length > 0 && currentUser?.role !== 'worker'
+  const viewableRoles = getViewableRoles(currentUser?.role || 'worker')
+  const canAddWorker = canAddWorkerUtil(currentUser?.role)
 
   // Fetch workers
   const { data: workersData, isLoading, error, refetch } = useQuery({
@@ -341,6 +334,8 @@ const Workers = () => {
       }
     }),
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   const workers = workersData?.workers || []
@@ -399,7 +394,17 @@ const Workers = () => {
       params: { companyId: currentCompany?.id }
     }),
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
+
+  const attendanceStatusByWorker = (attendanceData?.records || []).reduce((acc, record) => {
+    const workerId = record?.worker?.toString?.() || record?.worker
+    if (workerId) {
+      acc[workerId] = record.status
+    }
+    return acc
+  }, {})
 
   // Fetch salary summary
   const { data: salaryData } = useQuery({
@@ -418,6 +423,8 @@ const Workers = () => {
       })
     },
     enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   })
 
   // Create worker mutation
@@ -501,6 +508,61 @@ const Workers = () => {
     }
   })
 
+  const handleMarkAttendance = async (worker, status) => {
+    const workerId = worker?._id || worker?.id
+
+    if (!currentCompany?.id || !workerId) {
+      showError('Please select a company first')
+      return
+    }
+
+    try {
+      setMarkingAttendanceFor(`${workerId}:${status}`)
+      await api.post(`/workers/${workerId}/attendance`, {
+        companyId: currentCompany.id,
+        status
+      })
+      queryClient.invalidateQueries({ queryKey: ['attendanceToday', currentCompany?.id] })
+      showSuccess(`Marked ${worker.user?.name || worker.name || 'worker'} as ${status}`)
+    } catch (error) {
+      showError(error?.message || 'Failed to mark attendance')
+    } finally {
+      setMarkingAttendanceFor(null)
+    }
+  }
+
+  const renderAttendanceToggle = (worker, compact = false) => {
+    const workerId = worker?._id || worker?.id
+    const currentStatus = attendanceStatusByWorker[workerId]
+    const isSavingPresent = markingAttendanceFor === `${workerId}:present`
+    const isSavingAbsent = markingAttendanceFor === `${workerId}:absent`
+
+    return (
+      <div className={`inline-flex items-center rounded-md border ${compact ? 'gap-1 p-1' : 'gap-1 p-1.5'}`}>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`${compact ? 'h-7 px-2 text-xs' : 'h-8 px-3 text-xs sm:h-9'} ${
+            currentStatus === 'present' ? 'bg-green-600 text-white hover:bg-green-700 hover:text-white' : ''
+          }`}
+          onClick={() => handleMarkAttendance(worker, 'present')}
+        >
+          {isSavingPresent ? '...' : compact ? 'P' : 'Present'}
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className={`${compact ? 'h-7 px-2 text-xs' : 'h-8 px-3 text-xs sm:h-9'} ${
+            currentStatus === 'absent' ? 'bg-red-600 text-white hover:bg-red-700 hover:text-white' : ''
+          }`}
+          onClick={() => handleMarkAttendance(worker, 'absent')}
+        >
+          {isSavingAbsent ? '...' : compact ? 'A' : 'Absent'}
+        </Button>
+      </div>
+    )
+  }
+
   // Reset form functions
   const resetWorkerForm = () => {
     setWorkerForm({
@@ -513,7 +575,7 @@ const Workers = () => {
       department: '',
       customDepartment: '',
       baseSalary: '',
-      role: 'worker',
+      role: allowedRoles[0] || 'worker',
       joiningDate: new Date().toISOString().split('T')[0]
     })
     setAddErrors({})
@@ -995,15 +1057,7 @@ const Workers = () => {
             
             {/* Enhanced action buttons for tablet */}
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-8 w-8 sm:h-9 sm:w-9"
-                title="Attendance"
-                onClick={() => handleAttendance(worker)}
-              >
-                <Calendar className="h-3 w-3 sm:h-4 sm:w-4" />
-              </Button>
+              {renderAttendanceToggle(worker)}
 
               <Button
                 variant="ghost"
@@ -1196,14 +1250,7 @@ const Workers = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7"
-                        onClick={() => handleAttendance(worker)}
-                      >
-                        <Calendar className="h-3 w-3" />
-                      </Button>
+                      {renderAttendanceToggle(worker, true)}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1321,7 +1368,12 @@ const Workers = () => {
           {/* Action Buttons - IMPROVED RESPONSIVENESS */}
           {canAddWorker && currentCompany && (
             <div className={`flex flex-col sm:flex-row items-stretch sm:items-center gap-3 ${isMobileMenuOpen || windowWidth >= 640 ? 'flex' : 'hidden'}`}>
-              <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
+              <Dialog open={openAddDialog} onOpenChange={(open) => {
+                setOpenAddDialog(open)
+                if (!open) {
+                  resetWorkerForm()
+                }
+              }}>
                 <DialogTrigger asChild>
                   <Button onClick={handleOpenAddDialog} size="sm" className="w-full sm:w-auto">
                     <UserPlus className="mr-2 h-4 w-4" />
@@ -1335,7 +1387,182 @@ const Workers = () => {
                       Create a new worker account. A password setup email will be sent.
                     </DialogDescription>
                   </DialogHeader>
-                  {/* Form content remains the same */}
+                  <form onSubmit={handleAddWorker} className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="name">Name <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="name"
+                        value={workerForm.name}
+                        onChange={(e) => setWorkerForm({...workerForm, name: e.target.value})}
+                        placeholder="Enter worker name"
+                        className={addErrors.name ? 'border-red-500' : ''}
+                      />
+                      {addErrors.name && <p className="text-red-500 text-sm">{addErrors.name}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="email">Email <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="email"
+                        type="email"
+                        value={workerForm.email}
+                        onChange={(e) => setWorkerForm({...workerForm, email: e.target.value})}
+                        placeholder="Enter email address"
+                        className={addErrors.email ? 'border-red-500' : ''}
+                      />
+                      {addErrors.email && <p className="text-red-500 text-sm">{addErrors.email}</p>}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input
+                        id="phone"
+                        value={workerForm.phone}
+                        onChange={(e) => setWorkerForm({...workerForm, phone: e.target.value})}
+                        placeholder="Enter phone number"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="employeeId">Employee ID <span className="text-red-500">*</span></Label>
+                      <Input
+                        id="employeeId"
+                        value={workerForm.employeeId}
+                        onChange={(e) => setWorkerForm({...workerForm, employeeId: e.target.value})}
+                        placeholder="Employee ID"
+                        className={addErrors.employeeId ? 'border-red-500' : ''}
+                      />
+                      {addErrors.employeeId && <p className="text-red-500 text-sm">{addErrors.employeeId}</p>}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="designation">Designation</Label>
+                        <Select 
+                          value={workerForm.designation} 
+                          onValueChange={(v) => setWorkerForm({...workerForm, designation: v})}
+                        >
+                          <SelectTrigger id="designation">
+                            <SelectValue placeholder="Select designation" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {designationOptions.map(des => (
+                              <SelectItem key={des} value={des}>
+                                {des}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {workerForm.designation === 'Other' && (
+                        <div className="space-y-2">
+                          <Label htmlFor="customDesignation">Custom Designation</Label>
+                          <Input
+                            id="customDesignation"
+                            value={workerForm.customDesignation}
+                            onChange={(e) => setWorkerForm({...workerForm, customDesignation: e.target.value})}
+                            placeholder="Enter custom designation"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="department">Department</Label>
+                        <Select 
+                          value={workerForm.department} 
+                          onValueChange={(v) => setWorkerForm({...workerForm, department: v})}
+                        >
+                          <SelectTrigger id="department">
+                            <SelectValue placeholder="Select department" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {departmentOptions.map(dept => (
+                              <SelectItem key={dept} value={dept}>
+                                {dept}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {workerForm.department === 'Other' && (
+                        <div className="space-y-2">
+                          <Label htmlFor="customDepartment">Custom Department</Label>
+                          <Input
+                            id="customDepartment"
+                            value={workerForm.customDepartment}
+                            onChange={(e) => setWorkerForm({...workerForm, customDepartment: e.target.value})}
+                            placeholder="Enter custom department"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="baseSalary">Base Salary</Label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">৳</span>
+                        <Input
+                          id="baseSalary"
+                          type="number"
+                          value={workerForm.baseSalary}
+                          onChange={(e) => setWorkerForm({...workerForm, baseSalary: e.target.value})}
+                          placeholder="0"
+                          className="pl-8"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="joiningDate">Joining Date</Label>
+                      <Input
+                        id="joiningDate"
+                        type="date"
+                        value={workerForm.joiningDate}
+                        onChange={(e) => setWorkerForm({...workerForm, joiningDate: e.target.value})}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="role">Role</Label>
+                      <Select 
+                        value={workerForm.role} 
+                        onValueChange={(v) => setWorkerForm({...workerForm, role: v})}
+                      >
+                        <SelectTrigger id="role">
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allowedRoles.map(role => (
+                            <SelectItem key={role} value={role}>
+                              {role === 'group_leader' ? 'Group Leader' : 
+                               role === 'sales_executive' ? 'Sales Executive' :
+                               role.charAt(0).toUpperCase() + role.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <DialogFooter className="flex-col sm:flex-row gap-2 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setOpenAddDialog(false)}
+                        className="w-full sm:w-auto"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={createWorkerMutation.isPending}
+                        className="w-full sm:w-auto"
+                      >
+                        {createWorkerMutation.isPending ? 'Creating...' : 'Create Worker'}
+                      </Button>
+                    </DialogFooter>
+                  </form>
                 </DialogContent>
               </Dialog>
             </div>
@@ -1431,11 +1658,13 @@ const Workers = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">All Roles</SelectItem>
-                    <SelectItem value="owner">Owner</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="group_leader">Group Leader</SelectItem>
-                    <SelectItem value="worker">Worker</SelectItem>
-                    <SelectItem value="sales_executive">Sales Executive</SelectItem>
+                    {viewableRoles.map(role => (
+                      <SelectItem key={role} value={role}>
+                        {role === 'group_leader' ? 'Group Leader' : 
+                         role === 'sales_executive' ? 'Sales Executive' :
+                         role.charAt(0).toUpperCase() + role.slice(1)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <DropdownMenu>
@@ -1662,14 +1891,7 @@ const Workers = () => {
                                 </TableCell>
                                 <TableCell className="text-right">
                                   <div className="flex items-center justify-end gap-2">
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      title="Attendance"
-                                      onClick={() => handleAttendance(worker)}
-                                    >
-                                      <Calendar className="h-4 w-4" />
-                                    </Button>
+                                    {renderAttendanceToggle(worker)}
 
                                     <Button
                                       variant="ghost"

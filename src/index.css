@@ -120,4 +120,22 @@
   body {
     @apply bg-background text-foreground overflow-x-hidden;
   }
+
+  #root {
+    @apply min-h-screen overflow-x-hidden;
+  }
+
+  img,
+  svg,
+  video,
+  canvas {
+    max-width: 100%;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    max-width: 100%;
+  }
 }

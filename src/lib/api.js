@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://kharkhana-server.vercel.app/api',
+  baseURL: import.meta.env.VITE_API_URL || '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -25,11 +25,33 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    // Handle 401 - Unauthorized (token expired/invalid)
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
+      return Promise.reject(error)
     }
+
+    // Handle 403 - Forbidden (user doesn't have permission)
+    if (error.response?.status === 403) {
+      // Log the forbidden access attempt
+      console.warn('Access Forbidden:', error.response?.data?.message)
+      return Promise.reject(error)
+    }
+
+    // Handle 404 - Not Found
+    if (error.response?.status === 404) {
+      console.warn('Resource not found:', error.response?.data?.message)
+      return Promise.reject(error)
+    }
+
+    // Handle 500+ - Server errors
+    if (error.response?.status >= 500) {
+      console.error('Server error:', error.response?.data?.message)
+      return Promise.reject(error)
+    }
+
     return Promise.reject(error)
   }
 )

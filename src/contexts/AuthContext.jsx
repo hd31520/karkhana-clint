@@ -1,6 +1,6 @@
 import { createContext, useState, useContext, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
 import api from '@utils/api'
 
@@ -22,6 +22,17 @@ export const AuthProvider = ({ children }) => {
   const [isInitialized, setIsInitialized] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
+  const queryClient = useQueryClient()
+
+  const normalizeCompany = (company) => {
+    if (!company) return null
+
+    return {
+      ...company,
+      id: company.id || company._id,
+      _id: company._id || company.id
+    }
+  }
 
   // Check if user is logged in on mount - FIXED
   useEffect(() => {
@@ -94,7 +105,7 @@ export const AuthProvider = ({ children }) => {
       setError(null)
       // If company is returned, store it
       if (data.company) {
-        const normalizedCompany = { ...data.company, id: data.company.id || data.company._id }
+        const normalizedCompany = normalizeCompany(data.company)
         setCurrentCompany(normalizedCompany)
         localStorage.setItem('currentCompany', JSON.stringify(normalizedCompany))
       }
@@ -148,16 +159,13 @@ export const AuthProvider = ({ children }) => {
       return
     }
     
-    // Normalize company object
-    const normalized = { 
-      ...company, 
-      id: company.id || company._id,
-      _id: company._id || company.id
-    }
+    const normalized = normalizeCompany(company)
     
     console.log('Selecting company:', normalized)
     setCurrentCompany(normalized)
     localStorage.setItem('currentCompany', JSON.stringify(normalized))
+    queryClient.invalidateQueries({ queryKey: ['companies'] })
+    queryClient.invalidateQueries()
     
     // Navigate to dashboard after selecting company
     if (user?.role !== 'admin') {
@@ -166,11 +174,37 @@ export const AuthProvider = ({ children }) => {
   }
 
   // Get user's companies
-  const { data: companies = [], refetch: refetchCompanies } = useQuery({
+  const {
+    data: companiesData,
+    refetch: refetchCompanies,
+    isFetched: companiesFetched,
+    isLoading: companiesLoading
+  } = useQuery({
     queryKey: ['companies'],
     queryFn: () => api.get('/companies'),
     enabled: !!user && user.role !== 'admin' && isInitialized
   })
+
+  const companies = (companiesData?.companies || []).map(normalizeCompany)
+
+  useEffect(() => {
+    if (!currentCompany || !Array.isArray(companies) || !companiesFetched || companiesLoading) return
+
+    const matchedCompany = companies.find(company =>
+      company.id === currentCompany.id || company._id === currentCompany._id
+    )
+
+    if (!matchedCompany) {
+      setCurrentCompany(null)
+      localStorage.removeItem('currentCompany')
+      return
+    }
+
+    if (JSON.stringify(matchedCompany) !== JSON.stringify(currentCompany)) {
+      setCurrentCompany(matchedCompany)
+      localStorage.setItem('currentCompany', JSON.stringify(matchedCompany))
+    }
+  }, [companies, currentCompany, companiesFetched, companiesLoading])
 
   // Auto-select logic - SIMPLIFIED AND FIXED
   useEffect(() => {
@@ -184,22 +218,14 @@ export const AuthProvider = ({ children }) => {
     
     // Only auto-select if user has exactly one company
     if (Array.isArray(companies) && companies.length === 1) {
-      const firstCompany = companies[0]
-      const normalizedCompany = { 
-        ...firstCompany, 
-        id: firstCompany.id || firstCompany._id, 
-        _id: firstCompany._id || firstCompany.id 
-      }
+      const normalizedCompany = normalizeCompany(companies[0])
       
       console.log('Auto-selecting company:', normalizedCompany)
       setCurrentCompany(normalizedCompany)
       localStorage.setItem('currentCompany', JSON.stringify(normalizedCompany))
       
       // Navigate to dashboard
-      if (location.pathname === '/dashboard') {
-        // Already on dashboard, just reload
-        window.location.reload()
-      } else {
+      if (location.pathname !== '/dashboard') {
         navigate('/dashboard', { replace: true })
       }
     }

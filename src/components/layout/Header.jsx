@@ -37,9 +37,9 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
   return (
     // Hide header completely when user is not authenticated
     !isAuthenticated ? null : (
-    <header className="sticky top-0 z-50 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:bg-gray-900/95 dark:border-gray-800">
-      <div className="flex h-16 items-center justify-between px-4 md:px-6">
-        <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-800 dark:bg-gray-900/95">
+      <div className="flex min-h-16 items-center justify-between gap-3 px-3 py-2 sm:px-4 md:px-6">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           <div className="md:hidden">
             <button onClick={onMobileToggle} className="mr-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Open menu">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
@@ -47,20 +47,20 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
             </button>
           </div>
           {admin ? (
-            <h1 className="text-xl font-bold">Admin Dashboard</h1>
+            <h1 className="truncate text-base font-bold sm:text-xl">Admin Dashboard</h1>
           ) : (
-            <Link to="/" className="flex items-center gap-2">
-              <Home className="h-6 w-6" />
-              <span className="text-xl font-bold">Karkhana.shop</span>
+            <Link to="/" className="flex min-w-0 items-center gap-2">
+              <Home className="h-5 w-5 shrink-0 sm:h-6 sm:w-6" />
+              <span className="truncate text-base font-bold sm:text-xl">Karkhana.shop</span>
             </Link>
           )}
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-1 sm:gap-2">
           {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative">
+              <Button variant="ghost" size="icon" className="relative hidden sm:inline-flex">
                 <Bell className="h-5 w-5" />
                 {notifications > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
@@ -97,7 +97,7 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
           {/* User Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+              <Button variant="ghost" className="relative h-8 w-8 rounded-full sm:h-9 sm:w-9">
                 <Avatar className="h-8 w-8">
                   <AvatarImage src={user?.avatar} alt={user?.name} />
                   <AvatarFallback>{getInitials(user?.name)}</AvatarFallback>

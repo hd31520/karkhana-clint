@@ -206,19 +206,19 @@ const Inventory = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Inventory Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Inventory Management</h1>
           <p className="text-muted-foreground">
             Track and manage your inventory in real-time
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button>
+          <Button className="w-full sm:w-auto">
             <RefreshCw className="mr-2 h-4 w-4" />
             Stock Count
           </Button>
@@ -292,7 +292,7 @@ const Inventory = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-2 gap-2 sm:grid-cols-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="items">All Items</TabsTrigger>
           <TabsTrigger value="movement">Movement</TabsTrigger>
@@ -398,24 +398,24 @@ const Inventory = () => {
         <TabsContent value="items">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div>
                   <CardTitle>All Inventory Items</CardTitle>
                   <CardDescription>
                     Detailed view of all inventory items
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="relative">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       placeholder="Search inventory..."
-                      className="w-64 pl-9"
+                      className="w-full pl-9"
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  <Button variant="outline" size="icon">
+                  <Button variant="outline" size="icon" className="self-end sm:self-auto">
                     <Filter className="h-4 w-4" />
                   </Button>
                 </div>

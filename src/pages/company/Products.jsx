@@ -45,16 +45,60 @@ import {
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
 
+const formatProductTimestamp = (value) => {
+  if (!value) return 'Just now'
+
+  try {
+    return new Date(value).toLocaleString()
+  } catch {
+    return 'Just now'
+  }
+}
+
+const getNormalizedProduct = (product) => {
+  if (!product) return product
+
+  const stock = product.stock ?? product.inventory?.quantity ?? 0
+  const minStock = product.minStock ?? product.inventory?.minStock ?? 0
+  const status = stock === 0 ? 'out-of-stock' : stock <= minStock ? 'low-stock' : 'in-stock'
+
+  return {
+    ...product,
+    id: product.id || product._id,
+    _id: product._id || product.id,
+    code: product.code || product.sku || '-',
+    unit: product.unit || product.inventory?.unit || 'pcs',
+    stock,
+    minStock,
+    status,
+    category: product.category?.name || product.category || 'Uncategorized',
+    costPrice: product.costPrice ?? product.price?.cost ?? 0,
+    sellingPrice: product.sellingPrice ?? product.price?.selling ?? 0,
+    supplier: typeof product.supplier === 'object'
+      ? product.supplier?.name || product.supplier?.contact || '-'
+      : product.supplier || '-',
+    lastUpdated: product.lastUpdated || formatProductTimestamp(product.updatedAt || product.createdAt)
+  }
+}
+
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
-  const [limit, setLimit] = useState(10)
+  const [limit] = useState(10)
   const { currentCompany } = useAuth()
+  const companyId = currentCompany?.id || currentCompany?._id
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['products', currentCompany?.id, page, limit, searchTerm],
-    queryFn: () => api.get('/products', { params: { companyId: currentCompany?.id, page, limit, search: searchTerm } }),
-    enabled: !!currentCompany,
+  const { data, isLoading, refetch: refetchProducts } = useQuery({
+    queryKey: ['products', companyId, page, limit, searchTerm],
+    queryFn: async () => {
+      const res = await api.get('/products', { params: { companyId, page, limit, search: searchTerm } })
+      return {
+        ...res,
+        products: (res?.products || []).map(getNormalizedProduct)
+      }
+    },
+    enabled: !!companyId,
+    refetchOnWindowFocus: false,
   })
 
   const queryClient = useQueryClient()
@@ -75,17 +119,82 @@ const Products = () => {
   const [isEditing, setIsEditing] = useState(false)
   const [selectedProductForEdit, setSelectedProductForEdit] = useState(null)
 
+  const invalidateProductQueries = () => {
+    queryClient.invalidateQueries({ queryKey: ['products', companyId] })
+    queryClient.invalidateQueries({ queryKey: ['companyStats', companyId] })
+    queryClient.invalidateQueries({ queryKey: ['products-stock-value', companyId] })
+  }
+
+  const prependProductToVisibleCache = (product) => {
+    const normalizedProduct = getNormalizedProduct(product)
+
+    queryClient.setQueriesData({ queryKey: ['products', companyId] }, (oldData) => {
+      if (!oldData || !Array.isArray(oldData.products)) {
+        return oldData
+      }
+
+      const filtered = oldData.products.filter((item) => (item._id || item.id) !== (normalizedProduct._id || normalizedProduct.id))
+      return {
+        ...oldData,
+        products: [normalizedProduct, ...filtered].slice(0, limit),
+        total: (oldData.total || 0) + 1
+      }
+    })
+  }
+
+  const replaceProductInVisibleCache = (product) => {
+    const normalizedProduct = getNormalizedProduct(product)
+
+    queryClient.setQueriesData({ queryKey: ['products', companyId] }, (oldData) => {
+      if (!oldData || !Array.isArray(oldData.products)) {
+        return oldData
+      }
+
+      return {
+        ...oldData,
+        products: oldData.products.map((item) =>
+          (item._id || item.id) === (normalizedProduct._id || normalizedProduct.id)
+            ? { ...item, ...normalizedProduct }
+            : item
+        )
+      }
+    })
+  }
+
+  const removeProductFromVisibleCache = (productId) => {
+    queryClient.setQueriesData({ queryKey: ['products', companyId] }, (oldData) => {
+      if (!oldData || !Array.isArray(oldData.products)) {
+        return oldData
+      }
+
+      return {
+        ...oldData,
+        products: oldData.products.filter((item) => (item._id || item.id) !== productId),
+        total: Math.max(0, (oldData.total || 0) - 1)
+      }
+    })
+  }
+
   const handleCreateProduct = async (payload) => {
     try {
+      if (!payload?.companyId) {
+        showError('Please select a company first')
+        return null
+      }
+
       setIsCreating(true)
       const res = await productService.create(payload)
       showSuccess('Product created')
       setOpenAddDialog(false)
-      queryClient.invalidateQueries(['products', currentCompany?.id])
+      if (res?.product) {
+        prependProductToVisibleCache(res.product)
+      }
+      invalidateProductQueries()
+      await refetchProducts()
       setProductForm({ name: '', sku: '', barcode: '', category: '', price: { selling: 0, cost: 0 }, inventory: { quantity: 0, minStock: 0, unit: 'pcs' }, supplier: '', batch: '' })
       return res
     } catch (err) {
-      showError(err.response?.data?.message || 'Failed to create product')
+      showError(err?.message || 'Failed to create product')
       throw err
     } finally {
       setIsCreating(false)
@@ -113,12 +222,16 @@ const Products = () => {
     try {
       setIsCreating(true)
       const id = selectedProductForEdit._id || selectedProductForEdit.id
-      await productService.update(id, payload)
+      const res = await productService.update(id, payload)
       showSuccess('Product updated')
       setOpenAddDialog(false)
       setIsEditing(false)
       setSelectedProductForEdit(null)
-      queryClient.invalidateQueries(['products', currentCompany?.id])
+      if (res?.product) {
+        replaceProductInVisibleCache(res.product)
+      }
+      invalidateProductQueries()
+      await refetchProducts()
       setProductForm({ name: '', sku: '', barcode: '', category: '', price: { selling: 0, cost: 0 }, inventory: { quantity: 0, minStock: 0, unit: 'pcs' }, supplier: '', batch: '' })
     } catch (err) {
       showError(err.response?.data?.message || 'Failed to update product')
@@ -134,9 +247,10 @@ const Products = () => {
 
   // Fetch aggregated total stock value for the company
   const { data: stockValueData } = useQuery({
-    queryKey: ['products-stock-value', currentCompany?.id],
-    queryFn: () => api.get('/products/stock-value', { params: { companyId: currentCompany?.id } }),
-    enabled: !!currentCompany,
+    queryKey: ['products-stock-value', companyId],
+    queryFn: () => api.get('/products/stock-value', { params: { companyId } }),
+    enabled: !!companyId,
+    refetchOnWindowFocus: false,
   })
 
   const totalStockValue = stockValueData?.totalValue ?? 0
@@ -159,10 +273,14 @@ const Products = () => {
     if (!selectedProductForUpdate) return
     try {
       setIsUpdating(true)
-      await productService.updateInventory(selectedProductForUpdate._id || selectedProductForUpdate.id, updateForm)
+      const res = await productService.updateInventory(selectedProductForUpdate._id || selectedProductForUpdate.id, updateForm)
       showSuccess('Inventory updated')
       setOpenUpdateDialog(false)
-      queryClient.invalidateQueries(['products', currentCompany?.id])
+      if (res?.product) {
+        replaceProductInVisibleCache(res.product)
+      }
+      invalidateProductQueries()
+      await refetchProducts()
     } catch (err) {
       showError(err.response?.data?.message || 'Failed to update inventory')
     } finally {
@@ -186,10 +304,14 @@ const Products = () => {
     if (!selectedProductForPrice) return
     try {
       setIsChangingPrice(true)
-      await productService.update(selectedProductForPrice._id || selectedProductForPrice.id, { price: priceForm })
+      const res = await productService.update(selectedProductForPrice._id || selectedProductForPrice.id, { price: priceForm })
       showSuccess('Price updated')
       setOpenPriceDialog(false)
-      queryClient.invalidateQueries(['products', currentCompany?.id])
+      if (res?.product) {
+        replaceProductInVisibleCache(res.product)
+      }
+      invalidateProductQueries()
+      await refetchProducts()
     } catch (err) {
       showError(err.response?.data?.message || 'Failed to update price')
     } finally {
@@ -202,15 +324,6 @@ const Products = () => {
     navigate(`/dashboard/products/${id}`)
   }
 
-  const handleDeleteProduct = async (product) => {
-    try {
-      await productService.delete(product._id || product.id)
-      showSuccess('Product deleted')
-      queryClient.invalidateQueries(['products', currentCompany?.id])
-    } catch (err) {
-      showError(err.response?.data?.message || 'Failed to delete product')
-    }
-  }
   // Delete confirmation dialog state
   const [openDeleteConfirm, setOpenDeleteConfirm] = useState(false)
   const [selectedProductForDelete, setSelectedProductForDelete] = useState(null)
@@ -227,7 +340,9 @@ const Products = () => {
       showSuccess('Product deleted')
       setOpenDeleteConfirm(false)
       setSelectedProductForDelete(null)
-      queryClient.invalidateQueries(['products', currentCompany?.id])
+      removeProductFromVisibleCache(selectedProductForDelete._id || selectedProductForDelete.id)
+      invalidateProductQueries()
+      await refetchProducts()
     } catch (err) {
       showError(err.response?.data?.message || 'Failed to delete product')
     }
@@ -256,21 +371,21 @@ const Products = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Product Management</h1>
+          <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Product Management</h1>
           <p className="text-muted-foreground">
             Manage your product catalog and inventory
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="outline">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button variant="outline" className="w-full sm:w-auto">
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
-              <Button>
+              <Button className="w-full sm:w-auto">
                 <PackagePlus className="mr-2 h-4 w-4" />
                 Add Product
               </Button>
@@ -321,7 +436,7 @@ const Products = () => {
                 <Button onClick={() => {
                   // Build payload
                   const payload = {
-                    companyId: currentCompany?.id,
+                    companyId: currentCompany?.id || currentCompany?._id,
                     name: productForm.name,
                     sku: productForm.sku,
                     barcode: productForm.barcode,
@@ -475,24 +590,24 @@ const Products = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <CardTitle>All Products</CardTitle>
               <CardDescription>
                 Manage your product inventory and details
               </CardDescription>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search products..."
-                  className="w-64 pl-9"
+                  className="w-full pl-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" className="self-end sm:self-auto">
                 <Filter className="h-4 w-4" />
               </Button>
             </div>

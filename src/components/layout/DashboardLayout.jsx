@@ -37,10 +37,12 @@ const DashboardLayout = ({ admin = false }) => {
         mobileOpen={mobileOpen} 
         setMobileOpen={setMobileOpen} 
       />
-      <div className="flex-1 flex flex-col">
+      <div className="flex min-w-0 flex-1 flex-col">
         <Header admin={admin} onMobileToggle={() => setMobileOpen(true)} />
-        <main className="flex-1 p-4 md:p-6 overflow-auto">
-          <Outlet />
+        <main className="flex-1 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 md:px-6">
+          <div className="mx-auto w-full max-w-[1600px]">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
