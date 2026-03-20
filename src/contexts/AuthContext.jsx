@@ -182,7 +182,14 @@ export const AuthProvider = ({ children }) => {
     setCurrentCompany(normalized)
     localStorage.setItem('currentCompany', JSON.stringify(normalized))
     queryClient.invalidateQueries({ queryKey: ['companies'] })
-    queryClient.invalidateQueries()
+    queryClient.invalidateQueries({ queryKey: ['workers'] })
+    queryClient.invalidateQueries({ queryKey: ['attendanceToday'] })
+    queryClient.invalidateQueries({ queryKey: ['salarySummary'] })
+    queryClient.invalidateQueries({ queryKey: ['sales-stats'] })
+    queryClient.invalidateQueries({ queryKey: ['orders'] })
+    queryClient.invalidateQueries({ queryKey: ['memos'] })
+    queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    queryClient.invalidateQueries({ queryKey: ['products-list'] })
     
     // Navigate to dashboard after selecting company
     if (user?.role !== 'admin') {

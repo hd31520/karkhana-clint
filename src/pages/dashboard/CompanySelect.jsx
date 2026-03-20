@@ -1,15 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { Building, Search, Users, DollarSign, Check } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
+import { useToast } from '../../contexts/ToastContext'
+import api from '../../utils/api'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { Building, Search, Users, DollarSign, Check } from 'lucide-react'
-import { useMutation } from '@tanstack/react-query'
-import api from '../../utils/api'
-import { useToast } from '../../contexts/ToastContext'
 
 const normalizeCompany = (company) => ({
   ...company,
@@ -19,6 +19,15 @@ const normalizeCompany = (company) => ({
 
 const getCompanyId = (company) => company?.id || company?._id || null
 const canCreateCompany = (role) => role === 'owner' || role === 'admin'
+const formatCurrency = (amount) => `BDT ${Number(amount || 0).toLocaleString()}`
+
+const formatPlanName = (plan) => {
+  if (!plan) return 'Basic'
+
+  return String(plan)
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase())
+}
 
 const CompanySelect = () => {
   const [selectedCompany, setSelectedCompany] = useState(null)
@@ -30,6 +39,7 @@ const CompanySelect = () => {
     estimatedWorkers: '',
     subscriptionPlan: 'standard'
   })
+
   const {
     user,
     selectCompany,
@@ -64,18 +74,28 @@ const CompanySelect = () => {
       return
     }
 
-    const targetId = getCompanyId(currentCompany) || getCompanyId(selectedCompany)
-    const matchedCompany = companies.find((company) => getCompanyId(company) === targetId)
+    const selectedCompanyId = getCompanyId(selectedCompany)
+    if (selectedCompanyId) {
+      const matchedSelectedCompany = companies.find((company) => getCompanyId(company) === selectedCompanyId)
+      if (matchedSelectedCompany) {
+        setSelectedCompany(normalizeCompany(matchedSelectedCompany))
+        return
+      }
+    }
 
-    if (matchedCompany) {
-      setSelectedCompany(normalizeCompany(matchedCompany))
-      return
+    const currentCompanyId = getCompanyId(currentCompany)
+    if (currentCompanyId) {
+      const matchedCurrentCompany = companies.find((company) => getCompanyId(company) === currentCompanyId)
+      if (matchedCurrentCompany) {
+        setSelectedCompany(normalizeCompany(matchedCurrentCompany))
+        return
+      }
     }
 
     setSelectedCompany(normalizeCompany(companies[0]))
   }, [currentCompany, companies, companiesFetched, companiesLoading])
 
-  const filteredCompanies = companies.filter(company =>
+  const filteredCompanies = companies.filter((company) =>
     company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     company.businessType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     company.industry?.toLowerCase().includes(searchTerm.toLowerCase())
@@ -179,14 +199,14 @@ const CompanySelect = () => {
                           <div className="flex items-center gap-2">
                             <Users className="h-4 w-4 text-muted-foreground" />
                             <div>
-                              <div className="text-2xl font-bold">{company.workerCount || 0}</div>
+                              <div className="text-2xl font-bold">{Number(company.workerCount || 0)}</div>
                               <div className="text-xs text-muted-foreground">Workers</div>
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <DollarSign className="h-4 w-4 text-muted-foreground" />
                             <div>
-                              <div className="text-2xl font-bold">৳{company.totalSales?.toLocaleString() || 0}</div>
+                              <div className="text-2xl font-bold">{formatCurrency(company.totalSales)}</div>
                               <div className="text-xs text-muted-foreground">Sales</div>
                             </div>
                           </div>
@@ -202,7 +222,7 @@ const CompanySelect = () => {
                             {company.status || 'active'}
                           </span>
                           <span className="ml-2 text-xs text-muted-foreground">
-                            {company.subscription?.plan || 'Basic'} Plan
+                            {formatPlanName(company.subscription?.plan)} Plan
                           </span>
                         </div>
                       </CardFooter>

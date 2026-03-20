@@ -318,7 +318,20 @@ const Workers = () => {
     return getRoleHierarchy(currentUser?.role || 'worker')
   }
 
-  const allowedRoles = getAllowedRoles()
+  const allowedRoles = (() => {
+    const roles = getAllowedRoles()
+
+    if (!canAddWorkerUtil(currentUser?.role)) {
+      return roles
+    }
+
+    const uniqueRoles = Array.from(new Set(['worker', ...roles]))
+    return uniqueRoles.sort((a, b) => {
+      if (a === 'worker') return -1
+      if (b === 'worker') return 1
+      return 0
+    })
+  })()
   const viewableRoles = getViewableRoles(currentUser?.role || 'worker')
   const canAddWorker = canAddWorkerUtil(currentUser?.role)
 
@@ -385,6 +398,19 @@ const Workers = () => {
   // Reset calculation flag when company changes
   useEffect(() => {
     setIsEmployeeIdCalculated(false)
+  }, [currentCompany?.id])
+
+  useEffect(() => {
+    setPage(1)
+    setSearchTerm('')
+    setSelectedRole('all')
+    setSelectedWorker(null)
+    setOpenAddDialog(false)
+    setOpenInviteDialog(false)
+    setOpenEditDialog(false)
+    setOpenDeleteDialog(false)
+    setOpenPayDialog(false)
+    setIsMobileMenuOpen(false)
   }, [currentCompany?.id])
 
   // Fetch attendance summary
@@ -575,7 +601,7 @@ const Workers = () => {
       department: '',
       customDepartment: '',
       baseSalary: '',
-      role: allowedRoles[0] || 'worker',
+      role: allowedRoles.includes('worker') ? 'worker' : (allowedRoles[0] || 'worker'),
       joiningDate: new Date().toISOString().split('T')[0]
     })
     setAddErrors({})

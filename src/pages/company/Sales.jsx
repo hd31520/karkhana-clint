@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import api from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
@@ -98,6 +98,16 @@ const Sales = () => {
   const [viewOpen, setViewOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
   const [emailOpen, setEmailOpen] = useState(false)
+
+  useEffect(() => {
+    setSearchTerm('')
+    setActiveTab('orders')
+    setPage(1)
+    setSelectedOrder(null)
+    setViewOpen(false)
+    setEditOpen(false)
+    setEmailOpen(false)
+  }, [currentCompany?.id])
 
   const fetchOrder = async (id) => {
     try {
