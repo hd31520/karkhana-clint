@@ -29,7 +29,8 @@ api.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      localStorage.removeItem('currentCompany')
+      window.dispatchEvent(new CustomEvent('auth:unauthorized'))
       return Promise.reject(error)
     }
 

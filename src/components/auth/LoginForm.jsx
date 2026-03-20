@@ -27,7 +27,8 @@ const LoginForm = () => {
     },
   })
 
-  const onSubmit = (data) => {
+  const onSubmit = (data, event) => {
+    event?.preventDefault()
     login(data)
   }
 

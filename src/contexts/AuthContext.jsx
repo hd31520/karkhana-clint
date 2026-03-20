@@ -72,6 +72,23 @@ export const AuthProvider = ({ children }) => {
     initializeAuth()
   }, [])
 
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      setUser(null)
+      setCurrentCompany(null)
+
+      if (location.pathname !== '/login') {
+        navigate('/login', { replace: true })
+      }
+    }
+
+    window.addEventListener('auth:unauthorized', handleUnauthorized)
+
+    return () => {
+      window.removeEventListener('auth:unauthorized', handleUnauthorized)
+    }
+  }, [location.pathname, navigate])
+
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: (credentials) => api.post('/auth/login', credentials),
@@ -94,7 +111,7 @@ export const AuthProvider = ({ children }) => {
       }
     },
     onError: (error) => {
-      toast.error(error.response?.data?.message || 'Login failed')
+      toast.error(error?.message || 'Login failed')
     }
   })
 
