@@ -7,7 +7,7 @@ import { Input } from '../../components/ui/input'
 import { Label } from '../../components/ui/label'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Building, Search, Users, DollarSign, Check } from 'lucide-react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useMutation } from '@tanstack/react-query'
 import api from '../../utils/api'
 import { useToast } from '../../contexts/ToastContext'
 
@@ -18,6 +18,7 @@ const normalizeCompany = (company) => ({
 })
 
 const getCompanyId = (company) => company?.id || company?._id || null
+const canCreateCompany = (role) => role === 'owner' || role === 'admin'
 
 const CompanySelect = () => {
   const [selectedCompany, setSelectedCompany] = useState(null)
@@ -29,19 +30,17 @@ const CompanySelect = () => {
     estimatedWorkers: '',
     subscriptionPlan: 'standard'
   })
-  const { user, selectCompany, currentCompany } = useAuth()
+  const {
+    user,
+    selectCompany,
+    currentCompany,
+    companies,
+    companiesLoading,
+    companiesFetched,
+    refetchCompanies
+  } = useAuth()
   const { showSuccess, showError } = useToast()
   const navigate = useNavigate()
-
-  const { data: companiesData, isLoading } = useQuery({
-    queryKey: ['companies'],
-    queryFn: () => api.get('/companies'),
-    enabled: !!user && user.role !== 'admin',
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
-  })
-
-  const companies = (companiesData?.companies || []).map(normalizeCompany)
 
   const createCompanyMutation = useMutation({
     mutationFn: (companyData) => api.post('/companies', companyData),
@@ -49,6 +48,7 @@ const CompanySelect = () => {
       const normalizedCompany = normalizeCompany(data.company)
       showSuccess('Company created successfully')
       selectCompany(normalizedCompany)
+      refetchCompanies()
       navigate('/dashboard')
     },
     onError: (error) => {
@@ -57,6 +57,8 @@ const CompanySelect = () => {
   })
 
   useEffect(() => {
+    if (!companiesFetched && companiesLoading) return
+
     if (companies.length === 0) {
       setSelectedCompany(null)
       return
@@ -71,15 +73,7 @@ const CompanySelect = () => {
     }
 
     setSelectedCompany(normalizeCompany(companies[0]))
-  }, [currentCompany, companies])
-
-  useEffect(() => {
-    if (!currentCompany && companies.length > 0 && user?.role !== 'owner') {
-      const normalizedCompany = normalizeCompany(companies[0])
-      selectCompany(normalizedCompany)
-      navigate('/dashboard')
-    }
-  }, [companies, currentCompany, user?.role, selectCompany, navigate])
+  }, [currentCompany, companies, companiesFetched, companiesLoading])
 
   const filteredCompanies = companies.filter(company =>
     company.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -120,9 +114,9 @@ const CompanySelect = () => {
       </div>
 
       <Tabs defaultValue="my-companies">
-        <TabsList className={`grid w-full ${user?.role === 'owner' ? 'grid-cols-2' : 'grid-cols-1'}`}>
+        <TabsList className={`grid w-full ${canCreateCompany(user?.role) ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <TabsTrigger value="my-companies">My Companies</TabsTrigger>
-          {user?.role === 'owner' && (
+          {canCreateCompany(user?.role) && (
             <TabsTrigger value="create-new">Create New</TabsTrigger>
           )}
         </TabsList>
@@ -140,7 +134,7 @@ const CompanySelect = () => {
             </div>
           </div>
 
-          {isLoading ? (
+          {companiesLoading && !companiesFetched ? (
             <div className="py-12 text-center">
               <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-primary"></div>
               <p className="mt-4 text-muted-foreground">Loading companies...</p>
@@ -243,7 +237,7 @@ const CompanySelect = () => {
           )}
         </TabsContent>
 
-        {user?.role === 'owner' && (
+        {canCreateCompany(user?.role) && (
           <TabsContent value="create-new">
             <form onSubmit={handleCreateCompany}>
               <Card>

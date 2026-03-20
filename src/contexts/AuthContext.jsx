@@ -261,6 +261,8 @@ export const AuthProvider = ({ children }) => {
     updateUser,
     selectCompany,
     companies,
+    companiesLoading,
+    companiesFetched,
     refetchCompanies,
     isAuthenticated: !!user
   }
