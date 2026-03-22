@@ -44,6 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/printExport'
 
 const formatProductTimestamp = (value) => {
   if (!value) return 'Just now'
@@ -369,6 +370,36 @@ const Products = () => {
     return 'In Stock'
   }
 
+  const handleExportProducts = (type = 'excel') => {
+    if (!products.length) {
+      showError('No products available to export')
+      return
+    }
+
+    const rows = products.map((product) => ({
+      Name: product.name,
+      SKU: product.sku || product.code,
+      Category: product.category,
+      Stock: product.stock,
+      'Min Stock': product.minStock,
+      Status: getStockStatus(product.stock, product.minStock),
+      'Cost Price': product.costPrice,
+      'Selling Price': product.sellingPrice,
+      Supplier: product.supplier,
+      Updated: product.lastUpdated
+    }))
+
+    const filename = `${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-products`
+    const ok = type === 'pdf'
+      ? exportToPDF(rows, filename, 'Product Inventory')
+      : type === 'csv'
+        ? exportToCSV(rows, filename)
+        : exportToExcel(rows, filename, 'Products')
+
+    if (ok) showSuccess(`Products exported as ${type.toUpperCase()}`)
+    else showError('Failed to export products')
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -379,10 +410,21 @@ const Products = () => {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Export Products</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleExportProducts('excel')}>Export as Excel</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportProducts('csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportProducts('pdf')}>Export as PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto">

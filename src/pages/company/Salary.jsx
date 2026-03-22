@@ -52,6 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select'
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/printExport'
 
 const Salary = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -259,6 +260,79 @@ const Salary = () => {
   const bonusTotal = useMemo(() => (salaryData || []).reduce((s, r) => s + (Number(r.earnings?.bonus || 0)), 0), [salaryData])
   const deductionsTotal = useMemo(() => (salaryData || []).reduce((s, r) => s + (Number(r.deductions?.total || 0)), 0), [salaryData])
 
+  const handleExportPayroll = (type = 'excel') => {
+    if (!salaryData.length) {
+      showError('No salary data available to export')
+      return
+    }
+
+    const rows = salaryData.map((salary) => ({
+      Employee: salary.worker?.user?.name || salary.worker?.employeeId || 'Employee',
+      'Employee ID': salary.worker?.employeeId || '-',
+      Designation: salary.worker?.designation || '-',
+      'Base Salary': Number(salary.baseSalary || 0),
+      Overtime: Number(salary.earnings?.overtime?.amount || 0),
+      Bonus: Number(salary.earnings?.bonus || 0),
+      Deductions: Number(salary.deductions?.total || 0),
+      'Net Salary': Number(salary.netSalary || 0),
+      Status: salary.payment?.status || 'pending',
+      'Payment Date': salary.payment?.paidDate ? new Date(salary.payment.paidDate).toLocaleDateString() : '-'
+    }))
+
+    const filename = `${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-payroll`
+    const ok = type === 'pdf'
+      ? exportToPDF(rows, filename, 'Payroll Report', { orientation: 'landscape' })
+      : type === 'csv'
+        ? exportToCSV(rows, filename)
+        : exportToExcel(rows, filename, 'Payroll')
+
+    if (ok) showSuccess(`Payroll exported as ${type.toUpperCase()}`)
+    else showError('Failed to export payroll')
+  }
+
+  const printSalarySlip = (salary) => {
+    const employeeName = salary.worker?.user?.name || salary.worker?.employeeId || 'Employee'
+    const html = `
+      <html>
+        <head>
+          <title>Salary Slip - ${employeeName}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            .row { display: flex; justify-content: space-between; margin: 8px 0; }
+          </style>
+        </head>
+        <body>
+          <h1>${currentCompany?.name || 'Company'} Salary Slip</h1>
+          <div class="row"><strong>Employee</strong><span>${employeeName}</span></div>
+          <div class="row"><strong>Employee ID</strong><span>${salary.worker?.employeeId || '-'}</span></div>
+          <div class="row"><strong>Base Salary</strong><span>${salary.baseSalary || 0}</span></div>
+          <div class="row"><strong>Overtime</strong><span>${salary.earnings?.overtime?.amount || 0}</span></div>
+          <div class="row"><strong>Bonus</strong><span>${salary.earnings?.bonus || 0}</span></div>
+          <div class="row"><strong>Deductions</strong><span>${salary.deductions?.total || 0}</span></div>
+          <div class="row"><strong>Net Salary</strong><span>${salary.netSalary || 0}</span></div>
+          <div class="row"><strong>Status</strong><span>${salary.payment?.status || 'pending'}</span></div>
+        </body>
+      </html>`
+
+    const win = window.open('', '_blank')
+    if (!win) {
+      showError('Unable to open print window')
+      return
+    }
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    win.print()
+  }
+
+  const printAllSlips = () => {
+    if (!salaryData.length) {
+      showError('No salary slips to print')
+      return
+    }
+    salaryData.forEach((salary) => printSalarySlip(salary))
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -269,10 +343,21 @@ const Salary = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Export Payroll</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleExportPayroll('excel')}>Export as Excel</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportPayroll('csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportPayroll('pdf')}>Export as PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button onClick={() => setProcessDialogOpen(true)}>
             <CreditCard className="mr-2 h-4 w-4" />
             Process Salary
@@ -419,7 +504,7 @@ const Salary = () => {
                               <Edit className="mr-2 h-4 w-4" />
                               Edit Salary
                             </DropdownMenuItem>
-                            <DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => printSalarySlip(salary)}>
                               <Printer className="mr-2 h-4 w-4" />
                               Print Slip
                             </DropdownMenuItem>
@@ -511,11 +596,11 @@ const Salary = () => {
                     <CreditCard className="mb-2 h-5 w-5" />
                     <span className="text-sm">Bulk Payment</span>
                   </Button>
-                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => handleExportPayroll('excel')}>
                     <Download className="mb-2 h-5 w-5" />
                     <span className="text-sm">Export Payroll</span>
                   </Button>
-                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={printAllSlips}>
                     <Printer className="mb-2 h-5 w-5" />
                     <span className="text-sm">Print All Slips</span>
                   </Button>

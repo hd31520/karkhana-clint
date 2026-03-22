@@ -3,6 +3,43 @@ import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
+const normalizeValue = (value) => {
+  if (value === null || value === undefined) return '';
+  if (Array.isArray(value)) {
+    return value.map((item) => normalizeValue(item)).join(', ');
+  }
+  if (typeof value === 'object') {
+    return Object.entries(value)
+      .map(([key, nestedValue]) => `${key}: ${normalizeValue(nestedValue)}`)
+      .join(' | ');
+  }
+  return String(value);
+};
+
+const sanitizeRows = (data = []) => {
+  if (!Array.isArray(data) || data.length === 0) return [];
+
+  return data.map((row) => {
+    const entries = Object.entries(row || {}).map(([key, value]) => [key, normalizeValue(value)]);
+    return Object.fromEntries(entries);
+  });
+};
+
+const getColumnWidths = (rows = []) => {
+  if (!rows.length) return [];
+
+  const headers = Object.keys(rows[0]);
+  return headers.map((header) => ({
+    width: Math.min(
+      40,
+      Math.max(
+        header.length + 2,
+        ...rows.map((row) => String(row[header] || '').length + 2)
+      )
+    )
+  }));
+};
+
 /**
  * Export data to Excel file
  * @param {Array} data - Array of objects to export
@@ -11,13 +48,14 @@ import { saveAs } from 'file-saver';
  */
 export const exportToExcel = (data, filename = 'export', sheetName = 'Sheet1') => {
   try {
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const rows = sanitizeRows(data);
+    if (!rows.length) return false;
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     
-    // Auto-size columns
-    const maxWidth = data.reduce((w, r) => Math.max(w, ...Object.keys(r).map(k => k.length)), 10);
-    worksheet['!cols'] = Array(Object.keys(data[0] || {}).length).fill({ width: maxWidth });
+    worksheet['!cols'] = getColumnWidths(rows);
     
     XLSX.writeFile(workbook, `${filename}.xlsx`);
     return true;
@@ -34,7 +72,10 @@ export const exportToExcel = (data, filename = 'export', sheetName = 'Sheet1') =
  */
 export const exportToCSV = (data, filename = 'export') => {
   try {
-    const worksheet = XLSX.utils.json_to_sheet(data);
+    const rows = sanitizeRows(data);
+    if (!rows.length) return false;
+
+    const worksheet = XLSX.utils.json_to_sheet(rows);
     const csv = XLSX.utils.sheet_to_csv(worksheet);
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     saveAs(blob, `${filename}.csv`);
@@ -65,10 +106,12 @@ export const exportToPDF = (data, filename = 'export', title = 'Report', options
 
     doc.text(`Generated: ${new Date().toLocaleDateString()}`, 14, 28);
     
-    if (data && data.length > 0) {
+    const rowsData = sanitizeRows(data);
+
+    if (rowsData.length > 0) {
       // Convert data to table format
-      const headers = Object.keys(data[0]);
-      const rows = data.map(item => headers.map(header => item[header] ?? ''));
+      const headers = Object.keys(rowsData[0]);
+      const rows = rowsData.map(item => headers.map(header => item[header] ?? ''));
       
       // Add table
       doc.autoTable({

@@ -32,6 +32,7 @@ import {
   DropdownMenuSeparator,
 } from '../../components/ui/dropdown-menu'
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog'
+import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/printExport'
 
 const Sales = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -270,6 +271,73 @@ const Sales = () => {
     return Object.values(map).sort((a, b) => b.sales - a.sales).slice(0, 5)
   }, [orders])
 
+  const handleExportSales = (type = 'excel') => {
+    if (!orders.length) {
+      showError('No sales data available to export')
+      return
+    }
+
+    const rows = orders.map((order) => ({
+      'Order Number': order.orderNumber,
+      Customer: order.customer?.name || order.customerName || '-',
+      Date: order.createdAt ? new Date(order.createdAt).toLocaleString() : '-',
+      Items: Array.isArray(order.items) ? order.items.length : 0,
+      Total: Number(order.total || 0),
+      'Payment Status': order.payment?.status || '-',
+      'Payment Method': order.payment?.method || '-',
+      Status: order.status || '-',
+      Type: order.orderType || '-'
+    }))
+
+    const filename = `${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-sales`
+    const ok = type === 'pdf'
+      ? exportToPDF(rows, filename, 'Sales Report', { orientation: 'landscape' })
+      : type === 'csv'
+        ? exportToCSV(rows, filename)
+        : exportToExcel(rows, filename, 'Sales')
+
+    if (ok) showSuccess(`Sales exported as ${type.toUpperCase()}`)
+    else showError('Failed to export sales')
+  }
+
+  const handlePrintMemo = (memo) => {
+    const html = `
+      <html>
+        <head>
+          <title>Memo ${memo.memoNumber || ''}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+            th, td { border: 1px solid #d1d5db; padding: 8px; text-align: left; }
+            th { background: #f3f4f6; }
+          </style>
+        </head>
+        <body>
+          <h1>${currentCompany?.name || 'Company'} Memo</h1>
+          <p><strong>Memo:</strong> ${memo.memoNumber || '-'}</p>
+          <p><strong>Customer:</strong> ${memo.customerName || memo.customer?.name || '-'}</p>
+          <p><strong>Total:</strong> ${memo.total || 0}</p>
+          <p><strong>Paid:</strong> ${memo.paidAmount || 0}</p>
+          <p><strong>Due:</strong> ${memo.dueAmount || 0}</p>
+          <table>
+            <thead><tr><th>Product</th><th>Qty</th><th>Price</th><th>Total</th></tr></thead>
+            <tbody>
+              ${(memo.items || []).map((item) => `<tr><td>${item.name || '-'}</td><td>${item.quantity || 0}</td><td>${item.unitPrice || 0}</td><td>${item.total || 0}</td></tr>`).join('')}
+            </tbody>
+          </table>
+        </body>
+      </html>`
+    const win = window.open('', '_blank')
+    if (!win) {
+      showError('Unable to open print window')
+      return
+    }
+    win.document.write(html)
+    win.document.close()
+    win.focus()
+    win.print()
+  }
+
   // Compute payment distribution
   const paymentDistribution = useMemo(() => {
     const map = {}
@@ -325,10 +393,21 @@ const Sales = () => {
           <p className="text-muted-foreground">Manage orders, process sales, and track payments</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="w-full sm:w-auto">
+                <Download className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Export Sales</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleExportSales('excel')}>Export as Excel</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportSales('csv')}>Export as CSV</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportSales('pdf')}>Export as PDF</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Dialog>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto">
@@ -565,11 +644,11 @@ const Sales = () => {
                     <ShoppingCart className="mb-2 h-5 w-5" />
                     <span className="text-sm">POS Sale</span>
                   </Button>
-                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => memos[0] && handlePrintMemo(memos[0])}>
                     <Printer className="mb-2 h-5 w-5" />
                     <span className="text-sm">Print Memo</span>
                   </Button>
-                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
+                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => handleExportSales('excel')}>
                     <Download className="mb-2 h-5 w-5" />
                     <span className="text-sm">Export Sales</span>
                   </Button>
@@ -593,9 +672,9 @@ const Sales = () => {
                     Manage offline sales and customer memos
                   </CardDescription>
                 </div>
-                <Button>
+                <Button onClick={() => memos[0] ? handlePrintMemo(memos[0]) : showError('No memos available to print')}>
                   <Printer className="mr-2 h-4 w-4" />
-                  New Memo
+                  Print Latest Memo
                 </Button>
               </div>
             </CardHeader>
@@ -631,7 +710,7 @@ const Sales = () => {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline">
+                          <Button size="sm" variant="outline" onClick={() => handlePrintMemo(memo)}>
                             <Printer className="h-4 w-4" />
                           </Button>
                           <Button size="sm" variant="outline">
