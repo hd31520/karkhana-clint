@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import api from '../../lib/api'
@@ -268,6 +268,17 @@ const Products = () => {
   const total = data?.total ?? products.length
   const totalProducts = totalProductsData?.total ?? total
   const totalPages = Math.max(1, Math.ceil((total) / limit))
+  const hasSearch = searchTerm.trim().length > 0
+
+  useEffect(() => {
+    setPage(1)
+  }, [companyId, searchTerm])
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages)
+    }
+  }, [page, totalPages])
 
   // Fetch aggregated total stock value for the company
   const { data: stockValueData } = useQuery({
@@ -800,7 +811,11 @@ const Products = () => {
               <Package className="mx-auto h-12 w-12 text-muted-foreground" />
               <h3 className="mt-4 text-lg font-semibold">No products found</h3>
               <p className="mt-2 text-muted-foreground">
-                No products match your search criteria.
+                {hasSearch
+                  ? 'No products match your search criteria.'
+                  : totalProducts > 0
+                    ? 'No products are available on this page right now.'
+                    : 'Add your first product to get started.'}
               </p>
             </div>
           )}
