@@ -123,7 +123,7 @@ RoutePurpose/adminAdmin dashboard/admin/usersPlatform user management/admin/comp
 Environment Variables
 Copy .env.example to .env and fill in the values:
 env# Backend API
-VITE_API_URL=http://localhost:5000/api
+VITE_API_URL=https://kharkhana-server.vercel.app/api
 
 # Firebase (Optional)
 VITE_FIREBASE_API_KEY=
