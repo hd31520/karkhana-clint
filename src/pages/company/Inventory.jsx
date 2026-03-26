@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import { productService } from '../../services/productService'
@@ -674,3 +674,4 @@ const Inventory = () => {
 }
 
 export default Inventory
+

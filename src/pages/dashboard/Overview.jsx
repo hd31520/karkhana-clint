@@ -4,7 +4,7 @@ import StatsCards from '../../components/dashboard/StatsCards'
 import QuickActions from '../../components/dashboard/QuickActions'
 import RecentActivity from '../../components/dashboard/RecentActivity'
 import { useQuery } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
 import { Button } from '../../components/ui/button'
@@ -561,3 +561,4 @@ const Dashboard = () => {
 }
 
 export default Dashboard
+

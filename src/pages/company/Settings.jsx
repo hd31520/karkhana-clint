@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import pkg from '../../../package.json'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { canAccessPage } from '../../lib/roleUtils'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'

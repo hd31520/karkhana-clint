@@ -4,7 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import { Building, Search, Users, DollarSign, Check } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -361,3 +361,4 @@ const CompanySelect = () => {
 }
 
 export default CompanySelect
+

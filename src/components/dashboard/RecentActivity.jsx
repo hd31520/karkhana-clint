@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 import { formatDate, formatTime } from '../../lib/utils'
 import { useQuery } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 
 const RecentActivity = () => {

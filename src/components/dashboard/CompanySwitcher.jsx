@@ -12,7 +12,7 @@ import {
 import { useAuth } from '../../contexts/AuthContext'
 import { useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 
 const normalizeCompany = (company) => ({
   ...company,
@@ -133,3 +133,4 @@ const CompanySwitcher = () => {
 }
 
 export default CompanySwitcher
+

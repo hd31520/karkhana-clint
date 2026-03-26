@@ -1,4 +1,4 @@
-import api from '../utils/api'
+import api from '../lib/api'
 
 export const productService = {
   create: (data) => api.post('/products', data),
@@ -8,4 +8,5 @@ export const productService = {
   delete: (id) => api.delete(`/products/${id}`),
   updateInventory: (id, data) => api.put(`/products/${id}/inventory`, data)
 }
+
 

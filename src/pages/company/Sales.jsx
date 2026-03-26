@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -1150,3 +1150,4 @@ const OrderEmailDialog = ({ open, onOpenChange, order, onSend }) => {
     </Dialog>
   )
 }
+

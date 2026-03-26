@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react'
 import { Button } from '../ui/button'
@@ -14,7 +14,6 @@ const LoginForm = () => {
   const [showPassword, setShowPassword] = useState(false)
   const [rememberMe, setRememberMe] = useState(false)
   const { login, loginLoading } = useAuth()
-  const navigate = useNavigate()
 
   const {
     register,
@@ -29,7 +28,7 @@ const LoginForm = () => {
 
   const onSubmit = (data, event) => {
     event?.preventDefault()
-    login(data)
+    login({ ...data, rememberMe })
   }
 
   return (

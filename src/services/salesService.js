@@ -1,4 +1,4 @@
-import api from '../utils/api'
+import api from '../lib/api'
 
 export const salesService = {
   createOrder: (data) => api.post('/sales/orders', data),
@@ -7,4 +7,5 @@ export const salesService = {
   getMemos: (params) => api.get('/sales/memos', { params }),
   updateOrderStatus: (id, status) => api.put(`/sales/orders/${id}/status`, { status })
 }
+
 

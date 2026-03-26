@@ -1,4 +1,4 @@
-import api from '../utils/api'
+import api from '../lib/api'
 
 export const companyService = {
   create: (data) => api.post('/companies', data),
@@ -8,4 +8,5 @@ export const companyService = {
   delete: (id) => api.delete(`/companies/${id}`),
   getStats: (id) => api.get(`/companies/${id}/stats`)
 }
+
 

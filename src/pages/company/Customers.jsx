@@ -16,7 +16,7 @@ import {
   Wallet,
   ReceiptText
 } from 'lucide-react'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card'
@@ -788,3 +788,4 @@ const Customers = () => {
 }
 
 export default Customers
+

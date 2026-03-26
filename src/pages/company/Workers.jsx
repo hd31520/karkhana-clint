@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { getAllowedRoles as getRoleHierarchy, canAddWorker as canAddWorkerUtil, filterWorkersByRole, getViewableRoles } from '../../lib/roleUtils'
 import { useToast } from '../../contexts/ToastContext'
@@ -2210,3 +2210,4 @@ const Workers = () => {
 }
 
 export default Workers
+

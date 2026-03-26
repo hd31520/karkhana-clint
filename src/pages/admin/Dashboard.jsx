@@ -2,58 +2,57 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { Button } from '../../components/ui/button'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Badge } from '../../components/ui/badge'
-import { 
-  Users, 
-  Building, 
-  DollarSign, 
-  TrendingUp, 
+import {
+  Users,
+  Building,
+  DollarSign,
+  TrendingUp,
   Activity,
   Download,
-  MoreVertical
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
-import api from '../../utils/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { canAccessAdmin } from '../../lib/roleUtils'
+import adminService from '../../services/adminService'
+import useApiQuery from '../../hooks/useApiQuery'
 
 const AdminDashboard = () => {
   const { user } = useAuth()
 
-  // Check access
   if (!canAccessAdmin(user?.role)) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex min-h-screen items-center justify-center">
         <Card className="w-full max-w-md">
           <CardHeader>
             <CardTitle>Access Denied</CardTitle>
             <CardDescription>
-              You don't have permission to access the Admin Dashboard.
+              You don&apos;t have permission to access the Admin Dashboard.
             </CardDescription>
           </CardHeader>
         </Card>
       </div>
     )
   }
-  const { data: statsData, isLoading: statsLoading } = useQuery({
+
+  const { data: statsData } = useApiQuery({
     queryKey: ['admin', 'stats'],
-    queryFn: () => api.get('/admin/stats').then((res) => res.data),
+    queryFn: () => adminService.getStats(),
   })
 
-  const { data: companiesData, isLoading: companiesLoading } = useQuery({
-    queryKey: ['admin', 'companies'],
-    queryFn: () => api.get('/admin/companies', { params: { limit: 5 } }).then((res) => res.data),
+  const { data: companiesData } = useApiQuery({
+    queryKey: ['admin', 'companies', 'dashboard'],
+    queryFn: () => adminService.getCompanies({ limit: 5 }),
   })
 
-  const { data: usersData, isLoading: usersLoading } = useQuery({
-    queryKey: ['admin', 'users'],
-    queryFn: () => api.get('/admin/users', { params: { limit: 5 } }).then((res) => res.data),
+  const { data: usersData } = useApiQuery({
+    queryKey: ['admin', 'users', 'dashboard'],
+    queryFn: () => adminService.getUsers({ limit: 5 }),
   })
 
   const stats = [
-    { title: 'Total Users', value: statsData?.stats?.totalUsers ?? '—', icon: Users, change: '', trend: 'up' },
-    { title: 'Active Companies', value: statsData?.stats?.totalCompanies ?? '—', icon: Building, change: '', trend: 'up' },
-    { title: 'Monthly Revenue', value: `৳${statsData?.stats?.totalRevenue ?? 0}`, icon: DollarSign, change: '', trend: 'up' },
-    { title: 'Active Subscriptions', value: statsData?.stats?.activeSubscriptions ?? '—', icon: Activity, change: '', trend: 'up' },
+    { title: 'Total Users', value: statsData?.stats?.totalUsers ?? '-', icon: Users },
+    { title: 'Active Companies', value: statsData?.stats?.totalCompanies ?? '-', icon: Building },
+    { title: 'Monthly Revenue', value: `BDT ${Number(statsData?.stats?.totalRevenue ?? 0).toLocaleString()}`, icon: DollarSign },
+    { title: 'Active Subscriptions', value: statsData?.stats?.activeSubscriptions ?? '-', icon: Activity },
   ]
 
   const recentCompanies = companiesData?.companies ?? []
@@ -64,9 +63,7 @@ const AdminDashboard = () => {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="text-muted-foreground">
-            Overview of platform statistics and activities
-          </p>
+          <p className="text-muted-foreground">Overview of platform statistics and activities</p>
         </div>
         <Button variant="outline">
           <Download className="mr-2 h-4 w-4" />
@@ -83,14 +80,6 @@ const AdminDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">{stat.value}</div>
-              {stat.change ? (
-                <div className="flex items-center text-xs text-muted-foreground">
-                  <span className={`mr-1 ${stat.trend === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-                    {stat.trend === 'up' ? '↗' : '↘'} {stat.change}
-                  </span>
-                  from last month
-                </div>
-              ) : null}
             </CardContent>
           </Card>
         ))}
@@ -100,9 +89,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>Recent Companies</CardTitle>
-            <CardDescription>
-              Latest companies registered on the platform
-            </CardDescription>
+            <CardDescription>Latest companies registered on the platform</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -110,31 +97,29 @@ const AdminDashboard = () => {
                 <TableRow>
                   <TableHead>Company Name</TableHead>
                   <TableHead>Type</TableHead>
-                  <TableHead>Users</TableHead>
                   <TableHead>Plan</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {recentCompanies.map((company) => (
-                  <TableRow key={company.id}>
+                  <TableRow key={company._id || company.id}>
                     <TableCell className="font-medium">{company.name}</TableCell>
-                    <TableCell>{company.type}</TableCell>
-                    <TableCell>{company.users}</TableCell>
+                    <TableCell>{company.businessType || '-'}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{company.plan}</Badge>
+                      <Badge variant="outline">{company.subscription?.plan || '-'}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge
                         variant={
-                          company.status === 'active'
+                          company.subscription?.status === 'active'
                             ? 'default'
-                            : company.status === 'pending'
-                            ? 'secondary'
-                            : 'destructive'
+                            : company.subscription?.status === 'pending'
+                              ? 'secondary'
+                              : 'destructive'
                         }
                       >
-                        {company.status}
+                        {company.subscription?.status || 'unknown'}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -147,9 +132,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>Recent Users</CardTitle>
-            <CardDescription>
-              Latest user registrations
-            </CardDescription>
+            <CardDescription>Latest user registrations</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -157,23 +140,21 @@ const AdminDashboard = () => {
                 <TableRow>
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Company</TableHead>
                   <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.company}</TableCell>
+                {recentUsers.map((account) => (
+                  <TableRow key={account._id || account.id}>
+                    <TableCell className="font-medium">{account.name}</TableCell>
+                    <TableCell>{account.email}</TableCell>
                     <TableCell>
-                      <Badge variant="outline">{user.role}</Badge>
+                      <Badge variant="outline">{account.role}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={user.status === 'active' ? 'default' : 'secondary'}>
-                        {user.status}
+                      <Badge variant={account.isActive ? 'default' : 'secondary'}>
+                        {account.isActive ? 'active' : 'inactive'}
                       </Badge>
                     </TableCell>
                   </TableRow>
@@ -188,9 +169,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>Platform Health</CardTitle>
-            <CardDescription>
-              System performance and status
-            </CardDescription>
+            <CardDescription>System performance and status</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -201,29 +180,29 @@ const AdminDashboard = () => {
                 </div>
                 <Badge variant="default">Online</Badge>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">Database</div>
-                  <div className="text-sm text-muted-foreground">245.6 MB used</div>
+                  <div className="font-medium">Authentication</div>
+                  <div className="text-sm text-muted-foreground">Interceptor-based session handling enabled</div>
                 </div>
-                <Badge variant="outline">Healthy</Badge>
+                <Badge variant="outline">Protected</Badge>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">Last Backup</div>
-                  <div className="text-sm text-muted-foreground">2 hours ago</div>
+                  <div className="font-medium">API Client</div>
+                  <div className="text-sm text-muted-foreground">Single shared axios instance</div>
                 </div>
-                <Badge variant="outline">Completed</Badge>
+                <Badge variant="outline">Standardized</Badge>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="font-medium">API Response Time</div>
-                  <div className="text-sm text-muted-foreground">Average 120ms</div>
+                  <div className="font-medium">Admin Monitoring</div>
+                  <div className="text-sm text-muted-foreground">Live platform summary</div>
                 </div>
-                <Badge variant="outline">Fast</Badge>
+                <Badge variant="outline">Ready</Badge>
               </div>
             </div>
           </CardContent>
@@ -232,9 +211,7 @@ const AdminDashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>
-              Common administrative tasks
-            </CardDescription>
+            <CardDescription>Common administrative tasks</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-3">

@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useToast } from '../../contexts/ToastContext'
 import {
   Card,

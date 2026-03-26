@@ -1,186 +1,146 @@
-import { createContext, useState, useContext, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
-import api from '@utils/api'
+import api from '@/lib/api'
+import authStorage from '../lib/authStorage'
 
 const AuthContext = createContext()
 
+const normalizeCompany = (company) => {
+  if (!company) {
+    return null
+  }
+
+  return {
+    ...company,
+    id: company.id || company._id,
+    _id: company._id || company.id,
+  }
+}
+
 export const useAuth = () => {
   const context = useContext(AuthContext)
+
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider')
   }
+
   return context
 }
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null)
-  const [error, setError] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [currentCompany, setCurrentCompany] = useState(null)
-  const [isInitialized, setIsInitialized] = useState(false)
   const navigate = useNavigate()
   const location = useLocation()
   const queryClient = useQueryClient()
+  const [user, setUser] = useState(null)
+  const [currentCompany, setCurrentCompany] = useState(null)
+  const [error, setError] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [isInitialized, setIsInitialized] = useState(false)
 
-  const normalizeCompany = (company) => {
-    if (!company) return null
+  const clearAuthState = ({ redirectToLogin = true } = {}) => {
+    authStorage.clear()
+    setUser(null)
+    setCurrentCompany(null)
+    setError(null)
+    queryClient.clear()
 
-    return {
-      ...company,
-      id: company.id || company._id,
-      _id: company._id || company.id
+    if (redirectToLogin && location.pathname !== '/login') {
+      navigate('/login', {
+        replace: true,
+        state: { from: location.pathname },
+      })
     }
   }
 
-  // Check if user is logged in on mount - FIXED
   useEffect(() => {
-    const initializeAuth = async () => {
-      const token = localStorage.getItem('token')
-      const storedUser = localStorage.getItem('user')
-      
-      if (token && storedUser) {
-        try {
-          const parsedUser = JSON.parse(storedUser)
-          setUser(parsedUser)
-          
-          // Only restore company if user is not admin
-          if (parsedUser.role !== 'admin') {
-            const storedCompany = localStorage.getItem('currentCompany')
-            if (storedCompany) {
-              try {
-                const parsedCompany = JSON.parse(storedCompany)
-                setCurrentCompany(parsedCompany)
-              } catch (err) {
-                console.error('Failed to parse stored company:', err)
-                localStorage.removeItem('currentCompany')
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Auth initialization error:', error)
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
-          localStorage.removeItem('currentCompany')
-        }
-      }
-      setLoading(false)
-      setIsInitialized(true)
-    }
-
-    initializeAuth()
+    setUser(authStorage.getUser())
+    setCurrentCompany(authStorage.getCompany())
+    setLoading(false)
+    setIsInitialized(true)
   }, [])
 
   useEffect(() => {
-    const handleUnauthorized = () => {
-      setUser(null)
-      setCurrentCompany(null)
+    const handleUnauthorized = (event) => {
+      clearAuthState()
+      toast.error(event?.detail?.message || 'Please sign in again.')
+    }
 
-      if (location.pathname !== '/login') {
-        navigate('/login', { replace: true })
-      }
+    const handleForbidden = (event) => {
+      toast.error(event?.detail?.message || 'You do not have permission to access that.')
+    }
+
+    const handleServerError = (event) => {
+      toast.error(event?.detail?.message || 'Unexpected server error. Please try again.')
     }
 
     window.addEventListener('auth:unauthorized', handleUnauthorized)
+    window.addEventListener('auth:forbidden', handleForbidden)
+    window.addEventListener('api:server-error', handleServerError)
 
     return () => {
       window.removeEventListener('auth:unauthorized', handleUnauthorized)
+      window.removeEventListener('auth:forbidden', handleForbidden)
+      window.removeEventListener('api:server-error', handleServerError)
     }
   }, [location.pathname, navigate])
 
-  // Login mutation
   const loginMutation = useMutation({
-    mutationFn: (credentials) => api.post('/auth/login', credentials),
+    mutationFn: ({ rememberMe = false, ...credentials }) =>
+      api.post('/auth/login', credentials).then((data) => ({ ...data, rememberMe })),
     onSuccess: (data) => {
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
+      authStorage.setToken(data.token, { remember: data.rememberMe })
+      authStorage.setUser(data.user)
+      authStorage.setCompany(null)
       setUser(data.user)
-      
-      // Clear company on login
       setCurrentCompany(null)
-      localStorage.removeItem('currentCompany')
-      
-      toast.success('Login successful!')
-      
-      // Redirect based on role
-      if (data.user.role === 'admin') {
-        navigate('/admin')
-      } else {
-        navigate('/dashboard')
-      }
-    },
-    onError: (error) => {
-      toast.error(error?.message || 'Login failed')
-    }
-  })
-
-  // Register mutation
-  const registerMutation = useMutation({
-    mutationFn: (userData) => api.post('/auth/register', userData),
-    onSuccess: (data) => {
       setError(null)
-      // If company is returned, store it
-      if (data.company) {
-        const normalizedCompany = normalizeCompany(data.company)
-        setCurrentCompany(normalizedCompany)
-        localStorage.setItem('currentCompany', JSON.stringify(normalizedCompany))
-      }
-      toast.success('Registration successful! Please login.')
-      navigate('/login')
+      toast.success('Login successful')
+      navigate(data.user.role === 'admin' ? '/admin' : '/dashboard', { replace: true })
     },
-    onError: (error) => {
-      // Parse different error shapes (axios error.response.data or direct object)
-      let msg = 'Registration failed'
-      try {
-        if (!error) msg = 'Registration failed'
-        else if (typeof error === 'string') msg = error
-        else if (error.message) msg = error.message
-        else if (error.errors) {
-          // Joi or validation errors
-          if (Array.isArray(error.errors)) msg = error.errors.map(e => e.message || e).join(', ')
-          else msg = JSON.stringify(error.errors)
-        } else if (error.success === false && error.message) {
-          msg = error.message
-        }
-      } catch (err) {
-        msg = 'Registration failed'
-      }
-      setError(msg)
-      toast.error(msg)
-    }
+    onError: (apiError) => {
+      setError(apiError.message)
+      toast.error(apiError.message)
+    },
   })
 
-  // Logout function
-  const logout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    localStorage.removeItem('currentCompany')
-    setUser(null)
-    setCurrentCompany(null)
-    navigate('/login')
-    toast.success('Logged out successfully')
+  const registerMutation = useMutation({
+    mutationFn: (payload) => api.post('/auth/register', payload),
+    onSuccess: () => {
+      setError(null)
+      toast.success('Registration successful. Please sign in.')
+      navigate('/login', { replace: true })
+    },
+    onError: (apiError) => {
+      setError(apiError.message)
+      toast.error(apiError.message)
+    },
+  })
+
+  const logout = async () => {
+    try {
+      if (authStorage.getToken()) {
+        await api.post('/auth/logout')
+      }
+    } catch {
+      // Ignore logout request failures and clear local state regardless.
+    } finally {
+      clearAuthState({ redirectToLogin: true })
+      toast.success('Logged out successfully')
+    }
   }
 
-  // Update user function
   const updateUser = (userData) => {
     setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
+    authStorage.setUser(userData)
   }
 
-  // Set current company - FIXED
   const selectCompany = (company) => {
-    if (!company) {
-      setCurrentCompany(null)
-      localStorage.removeItem('currentCompany')
-      return
-    }
-    
-    const normalized = normalizeCompany(company)
-    
-    console.log('Selecting company:', normalized)
-    setCurrentCompany(normalized)
-    localStorage.setItem('currentCompany', JSON.stringify(normalized))
+    const normalizedCompany = normalizeCompany(company)
+    setCurrentCompany(normalizedCompany)
+    authStorage.setCompany(normalizedCompany)
+
     queryClient.invalidateQueries({ queryKey: ['companies'] })
     queryClient.invalidateQueries({ queryKey: ['workers'] })
     queryClient.invalidateQueries({ queryKey: ['attendanceToday'] })
@@ -190,79 +150,74 @@ export const AuthProvider = ({ children }) => {
     queryClient.invalidateQueries({ queryKey: ['memos'] })
     queryClient.invalidateQueries({ queryKey: ['transactions'] })
     queryClient.invalidateQueries({ queryKey: ['products-list'] })
-    
-    // Navigate to dashboard after selecting company
-    if (user?.role !== 'admin') {
+
+    if (user?.role !== 'admin' && normalizedCompany) {
       navigate('/dashboard', { replace: true })
     }
   }
 
-  // Get user's companies
   const {
     data: companiesData,
     refetch: refetchCompanies,
     isFetched: companiesFetched,
-    isLoading: companiesLoading
+    isLoading: companiesLoading,
   } = useQuery({
     queryKey: ['companies'],
     queryFn: () => api.get('/companies'),
-    enabled: !!user && user.role !== 'admin' && isInitialized
+    enabled: !!user && user.role !== 'admin' && isInitialized,
   })
 
-  const companies = (companiesData?.companies || []).map(normalizeCompany)
+  const companies = (companiesData?.companies || companiesData || []).map(normalizeCompany)
 
   useEffect(() => {
-    if (!currentCompany || !Array.isArray(companies) || !companiesFetched || companiesLoading) return
+    if (!currentCompany || !companiesFetched || companiesLoading) {
+      return
+    }
 
-    const matchedCompany = companies.find(company =>
-      company.id === currentCompany.id || company._id === currentCompany._id
+    const matchedCompany = companies.find(
+      (company) => company?.id === currentCompany?.id || company?._id === currentCompany?._id
     )
 
     if (!matchedCompany) {
       setCurrentCompany(null)
-      localStorage.removeItem('currentCompany')
+      authStorage.setCompany(null)
       return
     }
 
     if (JSON.stringify(matchedCompany) !== JSON.stringify(currentCompany)) {
       setCurrentCompany(matchedCompany)
-      localStorage.setItem('currentCompany', JSON.stringify(matchedCompany))
+      authStorage.setCompany(matchedCompany)
     }
-  }, [companies, currentCompany, companiesFetched, companiesLoading])
+  }, [companies, companiesFetched, companiesLoading, currentCompany])
 
-  // Auto-select logic - SIMPLIFIED AND FIXED
   useEffect(() => {
-    if (!isInitialized || loading || !user || user.role === 'admin') return
-    
-    // Skip if already on company-select page
-    if (location.pathname.includes('company-select')) return
-    
-    // Skip if company is already selected
-    if (currentCompany) return
-    
-    // Only auto-select if user has exactly one company
-    if (Array.isArray(companies) && companies.length === 1) {
+    if (!isInitialized || loading || !user || user.role === 'admin' || currentCompany) {
+      return
+    }
+
+    if (location.pathname.includes('company-select')) {
+      return
+    }
+
+    if (companies.length === 1) {
       const normalizedCompany = normalizeCompany(companies[0])
-      
-      console.log('Auto-selecting company:', normalizedCompany)
       setCurrentCompany(normalizedCompany)
-      localStorage.setItem('currentCompany', JSON.stringify(normalizedCompany))
-      
-      // Navigate to dashboard
+      authStorage.setCompany(normalizedCompany)
+
       if (location.pathname !== '/dashboard') {
         navigate('/dashboard', { replace: true })
       }
     }
-  }, [companies, user, currentCompany, loading, isInitialized, location.pathname, navigate])
+  }, [companies, currentCompany, isInitialized, loading, location.pathname, navigate, user])
 
   const value = {
     user,
     loading,
     currentCompany,
     login: loginMutation.mutate,
-    loginLoading: loginMutation.isLoading,
+    loginLoading: loginMutation.isPending,
     register: registerMutation.mutate,
-    registerLoading: registerMutation.isLoading,
+    registerLoading: registerMutation.isPending,
     error,
     logout,
     updateUser,
@@ -271,12 +226,9 @@ export const AuthProvider = ({ children }) => {
     companiesLoading,
     companiesFetched,
     refetchCompanies,
-    isAuthenticated: !!user
+    isAuthenticated: !!user,
   }
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  )
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
+

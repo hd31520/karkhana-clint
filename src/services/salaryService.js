@@ -1,4 +1,4 @@
-import api from '../utils/api'
+import api from '../lib/api'
 
 export const salaryService = {
   calculate: (data) => api.post('/salary/calculate', data),
@@ -7,4 +7,5 @@ export const salaryService = {
   pay: (id, data) => api.put(`/salary/${id}/pay`, data),
   getSlip: (id) => api.get(`/salary/${id}/slip`)
 }
+
 

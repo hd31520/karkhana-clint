@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useToast } from '../../contexts/ToastContext'
 import { useAuth } from '../../contexts/AuthContext'
+import authStorage from '../../lib/authStorage'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '../../components/ui/card'
 import { Button } from '../../components/ui/button'
 import { Input } from '../../components/ui/input'
@@ -48,9 +49,8 @@ const CompleteRegistration = () => {
     mutationFn: (data) => 
       api.post(`/workers/complete-registration/${token}`, data),
     onSuccess: (data) => {
-      // Set auth tokens
-      localStorage.setItem('token', data.token)
-      localStorage.setItem('user', JSON.stringify(data.user))
+      authStorage.setToken(data.token)
+      authStorage.setUser(data.user)
       
       // Update auth context
       updateUser(data.user)
@@ -280,3 +280,4 @@ const CompleteRegistration = () => {
 }
 
 export default CompleteRegistration
+

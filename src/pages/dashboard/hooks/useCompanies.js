@@ -1,5 +1,5 @@
 import { useQuery, useMutation } from '@tanstack/react-query'
-import api from '../../utils/api'
+import api from '../../lib/api'
 import { useToast } from '../../contexts/ToastContext'
 
 export const useCompanies = () => {
