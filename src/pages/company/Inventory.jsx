@@ -55,11 +55,12 @@ const Inventory = () => {
   const [limit, setLimit] = useState(10)
   const { currentCompany } = useAuth()
   const queryClient = useQueryClient()
+  const normalizedSearchTerm = searchTerm.trim()
 
   // Products (used as inventory items list)
   const { data: productsRes, isLoading: productsLoading } = useQuery({
-    queryKey: ['products', currentCompany?.id, page, limit, searchTerm],
-    queryFn: () => api.get('/products', { params: { companyId: currentCompany?.id, page, limit, search: searchTerm } }),
+    queryKey: ['inventory-products-list', currentCompany?.id, page, limit, normalizedSearchTerm],
+    queryFn: () => api.get('/products', { params: { companyId: currentCompany?.id, page, limit, search: normalizedSearchTerm || undefined } }),
     enabled: !!currentCompany,
   })
 
@@ -72,6 +73,8 @@ const Inventory = () => {
   const products = productsRes?.products || []
   const productsTotal = productsRes?.total ?? products.length
   const totalInventoryItems = totalProductsRes?.total ?? productsTotal
+  const totalPages = Math.max(1, Math.ceil(productsTotal / limit))
+  const hasSearch = normalizedSearchTerm.length > 0
 
   // Total stock value (aggregated)
   const { data: stockValueRes } = useQuery({
@@ -171,11 +174,7 @@ const Inventory = () => {
     }
   }
 
-  const filteredInventory = products.filter(item =>
-    (item.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.sku || item.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    ((item.category && (item.category.name || item.category)) || '').toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  const filteredInventory = products
 
   const formatCurrency = (value) => {
     if (!value) return '৳0'
@@ -419,7 +418,10 @@ const Inventory = () => {
                       placeholder="Search inventory..."
                       className="w-full pl-9"
                       value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
+                      onChange={(e) => {
+                        setSearchTerm(e.target.value)
+                        setPage(1)
+                      }}
                     />
                   </div>
                   <Button variant="outline" size="icon" className="self-end sm:self-auto">
@@ -495,6 +497,19 @@ const Inventory = () => {
                   })}
                 </TableBody>
               </Table>
+              {filteredInventory.length === 0 && !productsLoading && (
+                <div className="py-12 text-center">
+                  <Package className="mx-auto h-12 w-12 text-muted-foreground" />
+                  <h3 className="mt-4 text-lg font-semibold">No inventory items found</h3>
+                  <p className="mt-2 text-muted-foreground">
+                    {hasSearch
+                      ? 'No inventory items match your search criteria.'
+                      : totalInventoryItems > 0
+                        ? 'No inventory items are available on this page right now.'
+                        : 'Add your first product to start tracking inventory.'}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
