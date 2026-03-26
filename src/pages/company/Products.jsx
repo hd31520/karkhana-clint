@@ -116,6 +116,13 @@ const Products = () => {
     refetchOnWindowFocus: false,
   })
 
+  const { data: totalProductsData } = useQuery({
+    queryKey: ['products-total', companyId],
+    queryFn: () => api.get('/products', { params: { companyId, page: 1, limit: 1 } }),
+    enabled: !!companyId,
+    refetchOnWindowFocus: false,
+  })
+
   const queryClient = useQueryClient()
   const { showSuccess, showError } = useToast()
   const [openAddDialog, setOpenAddDialog] = useState(false)
@@ -136,6 +143,7 @@ const Products = () => {
 
   const invalidateProductQueries = () => {
     queryClient.invalidateQueries({ queryKey: ['products', companyId] })
+    queryClient.invalidateQueries({ queryKey: ['products-total', companyId] })
     queryClient.invalidateQueries({ queryKey: ['companyStats', companyId] })
     queryClient.invalidateQueries({ queryKey: ['products-stock-value', companyId] })
   }
@@ -258,6 +266,7 @@ const Products = () => {
 
   const products = data?.products || []
   const total = data?.total ?? products.length
+  const totalProducts = totalProductsData?.total ?? total
   const totalPages = Math.max(1, Math.ceil((total) / limit))
 
   // Fetch aggregated total stock value for the company
@@ -597,7 +606,7 @@ const Products = () => {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data?.total ?? products.length}</div>
+            <div className="text-2xl font-bold">{totalProducts}</div>
             <p className="text-xs text-muted-foreground">
               Across all categories
             </p>

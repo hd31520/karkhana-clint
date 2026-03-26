@@ -93,6 +93,16 @@ const Customers = () => {
     refetchOnWindowFocus: true,
   })
 
+  const { data: totalCustomersData } = useQuery({
+    queryKey: ['customers-total', currentCompany?.id],
+    queryFn: () => api.get('/customers', {
+      params: { companyId: currentCompany?.id, page: 1, limit: 1 }
+    }),
+    enabled: !!currentCompany?.id,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  })
+
   const { data: dueSummaryData } = useQuery({
     queryKey: ['customer-due-summary', currentCompany?.id],
     queryFn: () => api.get('/customers/due-summary', {
@@ -138,7 +148,7 @@ const Customers = () => {
   })
 
   const customers = data?.customers || []
-  const totalCustomers = data?.total ?? customers.length
+  const totalCustomers = totalCustomersData?.total ?? data?.total ?? customers.length
   const dueSummary = dueSummaryData?.summary || { totalDue: 0, dueCustomersCount: 0, averageDue: 0 }
   const filteredCustomers = customers
 

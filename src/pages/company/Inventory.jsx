@@ -63,8 +63,15 @@ const Inventory = () => {
     enabled: !!currentCompany,
   })
 
+  const { data: totalProductsRes } = useQuery({
+    queryKey: ['inventory-products-total', currentCompany?.id],
+    queryFn: () => api.get('/products', { params: { companyId: currentCompany?.id, page: 1, limit: 1 } }),
+    enabled: !!currentCompany,
+  })
+
   const products = productsRes?.products || []
   const productsTotal = productsRes?.total ?? products.length
+  const totalInventoryItems = totalProductsRes?.total ?? productsTotal
 
   // Total stock value (aggregated)
   const { data: stockValueRes } = useQuery({
@@ -241,7 +248,7 @@ const Inventory = () => {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{productsTotal}</div>
+            <div className="text-2xl font-bold">{totalInventoryItems}</div>
           </CardContent>
         </Card>
         <Card>

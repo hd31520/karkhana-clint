@@ -351,8 +351,23 @@ const Workers = () => {
     refetchOnWindowFocus: true,
   })
 
+  const { data: totalWorkersData } = useQuery({
+    queryKey: ['workers-total', currentCompany?.id],
+    queryFn: () => api.get('/workers', {
+      params: {
+        companyId: currentCompany?.id,
+        page: 1,
+        limit: 1
+      }
+    }),
+    enabled: !!currentCompany,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
+  })
+
   const workers = workersData?.workers || []
   const total = workersData?.total || 0
+  const totalWorkers = totalWorkersData?.total ?? total
   const totalPages = Math.ceil(total / limit)
 
   // Calculate next employee ID
@@ -1608,7 +1623,7 @@ const Workers = () => {
             </div>
           </CardHeader>
           <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-            <div className="text-2xl font-bold">{total}</div>
+            <div className="text-2xl font-bold">{totalWorkers}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {activeWorkers} active workers
             </p>
