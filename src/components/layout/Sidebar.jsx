@@ -18,6 +18,7 @@ import {
   Layers,
   Tag,
   WalletCards,
+  ReceiptText,
   X,
 } from 'lucide-react'
 import { cn } from '../../lib/utils'
@@ -36,6 +37,7 @@ const iconMap = {
   Tag,
   FileText,
   WalletCards,
+  ReceiptText,
 }
 
 const Sidebar = ({ admin = false, mobileOpen, setMobileOpen }) => {
@@ -76,6 +78,7 @@ const Sidebar = ({ admin = false, mobileOpen, setMobileOpen }) => {
          item.to.includes('company-select') ? Building :
          item.to.includes('products') ? Package :
          item.to.includes('inventory') ? Layers :
+         item.to.includes('due-management') ? ReceiptText :
          item.to.includes('sales') ? ShoppingCart :
          item.to.includes('customers') ? Users :
          item.to.includes('salary') ? DollarSign :

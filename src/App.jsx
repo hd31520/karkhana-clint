@@ -25,6 +25,7 @@ const Roles = lazy(() => import('./pages/company/Roles'))
 const Products = lazy(() => import('./pages/company/Products'))
 const ProductDetail = lazy(() => import('./pages/company/ProductDetail'))
 const Inventory = lazy(() => import('./pages/company/Inventory'))
+const DueManagement = lazy(() => import('./pages/company/due-management'))
 const Sales = lazy(() => import('./pages/company/Sales'))
 const Customers = lazy(() => import('./pages/company/Customers'))
 const Salary = lazy(() => import('./pages/company/Salary'))
@@ -74,6 +75,7 @@ function App() {
               <Route path="products" element={<Products />} />
               <Route path="products/:id" element={<ProductDetail />} />
               <Route path="inventory" element={<Inventory />} />
+              <Route path="due-management" element={<DueManagement />} />
               <Route path="sales" element={<Sales />} />
               <Route path="customers" element={<Customers />} />
               <Route path="salary" element={<Salary />} />
