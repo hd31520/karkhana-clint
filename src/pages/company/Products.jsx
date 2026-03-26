@@ -82,6 +82,20 @@ const getNormalizedProduct = (product) => {
   }
 }
 
+const normalizeSupplierPayload = (supplier) => {
+  if (supplier && typeof supplier === 'object') return supplier
+
+  const value = typeof supplier === 'string' ? supplier.trim() : ''
+  return value ? { name: value } : undefined
+}
+
+const normalizeBatchPayload = (batch) => {
+  if (batch && typeof batch === 'object') return batch
+
+  const value = typeof batch === 'string' ? batch.trim() : ''
+  return value ? { number: value } : undefined
+}
+
 const Products = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(1)
@@ -485,8 +499,8 @@ const Products = () => {
                     category: productForm.category,
                     price: productForm.price,
                     inventory: productForm.inventory,
-                    supplier: productForm.supplier,
-                    batch: productForm.batch
+                    supplier: normalizeSupplierPayload(productForm.supplier),
+                    batch: normalizeBatchPayload(productForm.batch)
                   }
                   if (isEditing) {
                     handleUpdateProduct(payload)

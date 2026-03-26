@@ -800,7 +800,9 @@ const Workers = () => {
       data: {
         designation: finalDesignation,
         department: finalDepartment,
-        baseSalary: parseFloat(editForm.baseSalary) || 0,
+        salary: {
+          baseSalary: parseFloat(editForm.baseSalary) || 0
+        },
         role: editForm.role,
         status: editForm.status
       }
