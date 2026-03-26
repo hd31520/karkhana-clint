@@ -102,11 +102,12 @@ const Products = () => {
   const [limit] = useState(10)
   const { currentCompany } = useAuth()
   const companyId = currentCompany?.id || currentCompany?._id
+  const normalizedSearchTerm = searchTerm.trim()
 
   const { data, isLoading, refetch: refetchProducts } = useQuery({
-    queryKey: ['products', companyId, page, limit, searchTerm],
+    queryKey: ['company-products-list', companyId, page, limit, normalizedSearchTerm],
     queryFn: async () => {
-      const res = await api.get('/products', { params: { companyId, page, limit, search: searchTerm } })
+      const res = await api.get('/products', { params: { companyId, page, limit, search: normalizedSearchTerm || undefined } })
       return {
         ...res,
         products: (res?.products || []).map(getNormalizedProduct)
@@ -117,7 +118,7 @@ const Products = () => {
   })
 
   const { data: totalProductsData } = useQuery({
-    queryKey: ['products-total', companyId],
+    queryKey: ['company-products-total', companyId],
     queryFn: () => api.get('/products', { params: { companyId, page: 1, limit: 1 } }),
     enabled: !!companyId,
     refetchOnWindowFocus: false,
@@ -142,8 +143,8 @@ const Products = () => {
   const [selectedProductForEdit, setSelectedProductForEdit] = useState(null)
 
   const invalidateProductQueries = () => {
-    queryClient.invalidateQueries({ queryKey: ['products', companyId] })
-    queryClient.invalidateQueries({ queryKey: ['products-total', companyId] })
+    queryClient.invalidateQueries({ queryKey: ['company-products-list', companyId] })
+    queryClient.invalidateQueries({ queryKey: ['company-products-total', companyId] })
     queryClient.invalidateQueries({ queryKey: ['companyStats', companyId] })
     queryClient.invalidateQueries({ queryKey: ['products-stock-value', companyId] })
   }
@@ -151,7 +152,7 @@ const Products = () => {
   const prependProductToVisibleCache = (product) => {
     const normalizedProduct = getNormalizedProduct(product)
 
-    queryClient.setQueriesData({ queryKey: ['products', companyId] }, (oldData) => {
+    queryClient.setQueriesData({ queryKey: ['company-products-list', companyId] }, (oldData) => {
       if (!oldData || !Array.isArray(oldData.products)) {
         return oldData
       }
@@ -168,7 +169,7 @@ const Products = () => {
   const replaceProductInVisibleCache = (product) => {
     const normalizedProduct = getNormalizedProduct(product)
 
-    queryClient.setQueriesData({ queryKey: ['products', companyId] }, (oldData) => {
+    queryClient.setQueriesData({ queryKey: ['company-products-list', companyId] }, (oldData) => {
       if (!oldData || !Array.isArray(oldData.products)) {
         return oldData
       }
@@ -185,7 +186,7 @@ const Products = () => {
   }
 
   const removeProductFromVisibleCache = (productId) => {
-    queryClient.setQueriesData({ queryKey: ['products', companyId] }, (oldData) => {
+    queryClient.setQueriesData({ queryKey: ['company-products-list', companyId] }, (oldData) => {
       if (!oldData || !Array.isArray(oldData.products)) {
         return oldData
       }
@@ -268,7 +269,7 @@ const Products = () => {
   const total = data?.total ?? products.length
   const totalProducts = totalProductsData?.total ?? total
   const totalPages = Math.max(1, Math.ceil((total) / limit))
-  const hasSearch = searchTerm.trim().length > 0
+  const hasSearch = normalizedSearchTerm.length > 0
 
   useEffect(() => {
     setPage(1)
