@@ -185,11 +185,38 @@ const Reports = () => {
 
   const generateReportMutation = useMutation({
     mutationFn: async (body) => {
-      const res = await api.post('/reports/generate', body)
-      return res.data ? res.data : res
+      // For Vercel/serverless, the response will be a file download, not JSON
+      // We'll handle this by making a direct fetch call that triggers download
+      const response = await fetch('/api/v1/reports/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(body)
+      })
+      
+      if (response.ok && response.headers.get('content-type')?.includes('application/pdf')) {
+        // File download triggered successfully
+        return { success: true, downloaded: true }
+      }
+      
+      // Try to parse as JSON for traditional response
+      const data = await response.json()
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to generate report')
+      }
+      return data
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries(['reports', currentCompany?.id])
+    onSuccess: (data) => {
+      if (data.downloaded) {
+        window.alert('Report downloaded successfully!')
+      } else {
+        queryClient.invalidateQueries(['reports', currentCompany?.id])
+      }
+    },
+    onError: (error) => {
+      window.alert(`Report generation failed: ${error.message}`)
     }
   })
 

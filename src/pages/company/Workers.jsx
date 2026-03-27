@@ -1673,7 +1673,7 @@ const Workers = () => {
                   </SelectContent>
                 </Select>
                 <ExportImportToolbar
-                  data={workers}
+                  data={getExportData}
                   filename={`workers-export-${new Date().toISOString().split('T')[0]}`}
                   title="Workers"
                   company={currentCompany?.name}

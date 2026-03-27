@@ -29,15 +29,21 @@ const ExportImportToolbar = ({
   const [isImporting, setIsImporting] = useState(false)
   const fileInputRef = useRef(null)
 
-  const handleExport = (format) => {
-    if (!data || data.length === 0) {
-      window.alert('No data to export')
-      return
-    }
-
+  const handleExport = async (format) => {
     setIsExporting(true)
     
     try {
+      // Get the actual data - could be an array or async function
+      let actualData = data
+      if (typeof data === 'function') {
+        actualData = await data()
+      }
+      
+      if (!actualData || actualData.length === 0) {
+        window.alert('No data to export')
+        return
+      }
+
       const exportOptions = {
         company,
         title,
@@ -47,27 +53,29 @@ const ExportImportToolbar = ({
       let success = false
       switch (format) {
         case 'excel':
-          success = exportToExcel(data, filename, exportOptions)
+          success = exportToExcel(actualData, filename, exportOptions)
           break
         case 'csv':
-          success = exportToCSV(data, filename, exportOptions)
+          success = exportToCSV(actualData, filename, exportOptions)
           break
         case 'pdf':
-          success = exportToPDF(data, filename, exportOptions)
+          success = exportToPDF(actualData, filename, exportOptions)
           break
         case 'json':
-          success = exportToJSON(data, filename, exportOptions)
+          success = exportToJSON(actualData, filename, exportOptions)
           break
         default:
           success = false
       }
 
       if (success) {
-        window.alert(`Successfully exported to ${format.toUpperCase()}`)
+        // Don't show success alert for exports - file download indicates success
+        console.log(`Successfully exported to ${format.toUpperCase()}`)
       } else {
         window.alert(`Failed to export to ${format.toUpperCase()}`)
       }
     } catch (error) {
+      console.error('Export error:', error)
       window.alert(`Export error: ${error.message}`)
     } finally {
       setIsExporting(false)
