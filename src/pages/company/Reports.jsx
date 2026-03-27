@@ -106,6 +106,14 @@ const Reports = () => {
   const lowStockProducts = alertsRes?.alerts?.products?.lowStock || []
   const outOfStockProducts = alertsRes?.alerts?.products?.outOfStock || []
 
+  // Inventory turnover data
+  const { data: turnoverRes } = useQuery({
+    queryKey: ['inventory-turnover', currentCompany?.id],
+    queryFn: () => api.get('/inventory/turnover', { params: { companyId: currentCompany?.id } }),
+    enabled: !!currentCompany,
+  })
+  const turnoverData = turnoverRes?.turnover || []
+
   // Customers for segmentation/top customers
   const { data: customersRes } = useQuery({
     queryKey: ['customers', currentCompany?.id, 'top'],
@@ -472,25 +480,24 @@ const Reports = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-4">
-                    {[
-                      { category: 'Furniture', turnover: '2.8x', days: 32 },
-                      { category: 'Electronics', turnover: '4.2x', days: 22 },
-                      { category: 'Textile', turnover: '3.5x', days: 26 },
-                      { category: 'Accessories', turnover: '5.1x', days: 18 },
-                    ].map((item) => (
-                      <div key={item.category} className="flex items-center justify-between">
-                        <div>
-                          <div className="font-medium">{item.category}</div>
-                          <div className="text-sm text-muted-foreground">
-                            Avg. {item.days} days
+                    {turnoverData.length === 0 ? (
+                      <div className="text-sm text-muted-foreground">No turnover data available</div>
+                    ) : (
+                      turnoverData.map((item) => (
+                        <div key={item.category} className="flex items-center justify-between">
+                          <div>
+                            <div className="font-medium">{item.category}</div>
+                            <div className="text-sm text-muted-foreground">
+                              Avg. {item.days} days
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-bold">{item.turnover}</div>
+                            <div className="text-sm text-muted-foreground">Turnover rate</div>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <div className="font-bold">{item.turnover}</div>
-                          <div className="text-sm text-muted-foreground">Turnover rate</div>
-                        </div>
-                      </div>
-                    ))}
+                      ))
+                    )}
                   </div>
                 </CardContent>
               </Card>
