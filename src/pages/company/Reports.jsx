@@ -49,13 +49,23 @@ const Reports = () => {
   const [endDate, setEndDate] = useState('')
   const [format, setFormat] = useState('pdf')
   // Dynamic analytics queries
+  const { data: insightsRes } = useQuery({
+    queryKey: ['report-insights', currentCompany?.id],
+    queryFn: () => api.get('/reports/insights', { params: { companyId: currentCompany?.id } }),
+    enabled: !!currentCompany,
+    retry: 1,
+  })
+
+  const insights = insightsRes?.insights || {}
+
   const { data: salesStatsRes } = useQuery({
     queryKey: ['sales-stats', currentCompany?.id],
     queryFn: () => api.get('/sales/stats', { params: { companyId: currentCompany?.id } }),
     enabled: !!currentCompany,
+    retry: 1,
   })
 
-  const salesStats = salesStatsRes?.stats || { totalSales: 0, totalOrders: 0, activeCustomers: 0, avgOrder: 0, monthly: [] }
+  const salesStats = salesStatsRes?.stats || { totalSales: insights.totalSales || 0, totalOrders: insights.totalOrders || 0, activeCustomers: insights.activeCustomers || 0, avgOrder: insights.avgOrder || 0, monthly: insights.monthlySales || [] }
 
   const salesData = (salesStats.monthly || []).map(m => ({ month: `${m._id.month}/${m._id.year}`, sales: m.total || 0, target: 0 }))
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8']
@@ -76,9 +86,9 @@ const Reports = () => {
   const expenseData = Object.keys(expenseMap).map((k, i) => ({ name: k, value: expenseMap[k], color: COLORS[i % COLORS.length] }))
 
   const totalExpenses = Object.values(expenseMap).reduce((s, v) => s + v, 0)
-  const totalRevenue = salesStats.totalSales || 0
-  const profit = totalRevenue - totalExpenses
-  const activeCustomers = salesStats.activeCustomers || 0
+  const totalRevenue = insights.totalSales || salesStats.totalSales || 0
+  const profit = (insights.profit ?? (totalRevenue - totalExpenses))
+  const activeCustomers = insights.activeCustomers || salesStats.activeCustomers || 0
 
   // Inventory analytics: stock value and alerts
   const { data: stockValueRes } = useQuery({
