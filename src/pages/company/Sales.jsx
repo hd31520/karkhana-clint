@@ -284,7 +284,6 @@ const Sales = () => {
       Type: order.orderType || '-'
     }))
   }
-  }
 
   const handlePrintMemo = (memo) => {
     const html = `
