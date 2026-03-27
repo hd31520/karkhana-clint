@@ -139,7 +139,7 @@ const Reports = () => {
   // Customers for segmentation/top customers
   const { data: customersRes } = useQuery({
     queryKey: ['customers', currentCompany?.id, 'top'],
-    queryFn: () => api.get('/customers', { params: { companyId: currentCompany?.id, limit: 100 } }),
+    queryFn: () => api.get('/customers', { params: { companyId: currentCompany?.id, limit: 1000 } }),
     enabled: !!currentCompany,
   })
   const customers = customersRes?.customers || []
@@ -205,13 +205,43 @@ const Reports = () => {
 
   const handleGenerateFromForm = () => {
     if (!currentCompany) return
-    const period = startDate || endDate ? { startDate: startDate || null, endDate: endDate || null } : {}
+    if (!reportType) {
+      window.alert('Please select a report type.')
+      return
+    }
+
+    const period = {}
+    if (startDate) period.startDate = startDate
+    if (endDate) period.endDate = endDate
+
+    if (reportType === 'daily_sales' && !period.startDate) {
+      window.alert('Please select a date for daily sales report.')
+      return
+    }
+
+    if (reportType === 'monthly_sales' && !period.startDate && !period.endDate) {
+      const now = new Date()
+      period.month = now.getMonth() + 1
+      period.year = now.getFullYear()
+    }
+
+    if (reportType === 'salary' && !period.startDate && !period.endDate && !period.month) {
+      window.alert('Please choose month/year or provide date range for salary report.')
+      return
+    }
+
+    if (reportType === 'profit_loss' && (!period.startDate || !period.endDate)) {
+      window.alert('Please select a valid start and end date for profit & loss report.')
+      return
+    }
+
     const body = {
       companyId: currentCompany.id,
-      type: reportType || 'monthly_sales',
+      type: reportType,
       period,
       format
     }
+
     generateReportMutation.mutate(body)
   }
 
