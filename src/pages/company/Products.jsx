@@ -44,7 +44,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '../../components/ui/dropdown-menu'
-import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/printExport'
+import ExportImportToolbar from '../../components/shared/ExportImportToolbar'
 
 const formatProductTimestamp = (value) => {
   if (!value) return 'Just now'
@@ -405,13 +405,8 @@ const Products = () => {
     return 'In Stock'
   }
 
-  const handleExportProducts = (type = 'excel') => {
-    if (!products.length) {
-      showError('No products available to export')
-      return
-    }
-
-    const rows = products.map((product) => ({
+  const getExportData = () => {
+    return products.map((product) => ({
       Name: product.name,
       SKU: product.sku || product.code,
       Category: product.category,
@@ -423,16 +418,6 @@ const Products = () => {
       Supplier: product.supplier,
       Updated: product.lastUpdated
     }))
-
-    const filename = `${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-products`
-    const ok = type === 'pdf'
-      ? exportToPDF(rows, filename, 'Product Inventory')
-      : type === 'csv'
-        ? exportToCSV(rows, filename)
-        : exportToExcel(rows, filename, 'Products')
-
-    if (ok) showSuccess(`Products exported as ${type.toUpperCase()}`)
-    else showError('Failed to export products')
   }
 
   return (
@@ -445,21 +430,16 @@ const Products = () => {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Export Products</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExportProducts('excel')}>Export as Excel</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportProducts('csv')}>Export as CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportProducts('pdf')}>Export as PDF</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <ExportImportToolbar
+            data={getExportData()}
+            filename={`${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-products`}
+            title="Product Inventory"
+            company={currentCompany?.name}
+            onImportSuccess={(records) => {
+              showSuccess(`Imported ${records.length} products`)
+              refetchProducts()
+            }}
+          />
           <Dialog open={openAddDialog} onOpenChange={setOpenAddDialog}>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto">

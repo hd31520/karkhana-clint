@@ -52,7 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../components/ui/select'
-import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/printExport'
+import ExportImportToolbar from '../../components/shared/ExportImportToolbar'
 
 const Salary = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -260,13 +260,8 @@ const Salary = () => {
   const bonusTotal = useMemo(() => (salaryData || []).reduce((s, r) => s + (Number(r.earnings?.bonus || 0)), 0), [salaryData])
   const deductionsTotal = useMemo(() => (salaryData || []).reduce((s, r) => s + (Number(r.deductions?.total || 0)), 0), [salaryData])
 
-  const handleExportPayroll = (type = 'excel') => {
-    if (!salaryData.length) {
-      showError('No salary data available to export')
-      return
-    }
-
-    const rows = salaryData.map((salary) => ({
+  const getExportData = () => {
+    return salaryData.map((salary) => ({
       Employee: salary.worker?.user?.name || salary.worker?.employeeId || 'Employee',
       'Employee ID': salary.worker?.employeeId || '-',
       Designation: salary.worker?.designation || '-',
@@ -278,16 +273,6 @@ const Salary = () => {
       Status: salary.payment?.status || 'pending',
       'Payment Date': salary.payment?.paidDate ? new Date(salary.payment.paidDate).toLocaleDateString() : '-'
     }))
-
-    const filename = `${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-payroll`
-    const ok = type === 'pdf'
-      ? exportToPDF(rows, filename, 'Payroll Report', { orientation: 'landscape' })
-      : type === 'csv'
-        ? exportToCSV(rows, filename)
-        : exportToExcel(rows, filename, 'Payroll')
-
-    if (ok) showSuccess(`Payroll exported as ${type.toUpperCase()}`)
-    else showError('Failed to export payroll')
   }
 
   const printSalarySlip = (salary) => {
@@ -343,21 +328,13 @@ const Salary = () => {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Export Payroll</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExportPayroll('excel')}>Export as Excel</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportPayroll('csv')}>Export as CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportPayroll('pdf')}>Export as PDF</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+              <ExportImportToolbar
+                data={getExportData()}
+                filename={`${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-payroll`}
+                title="Payroll"
+                company={currentCompany?.name}
+                onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['salaries', currentCompany?.id] })}
+              />
           <Button onClick={() => setProcessDialogOpen(true)}>
             <CreditCard className="mr-2 h-4 w-4" />
             Process Salary
@@ -595,10 +572,6 @@ const Salary = () => {
                   <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
                     <CreditCard className="mb-2 h-5 w-5" />
                     <span className="text-sm">Bulk Payment</span>
-                  </Button>
-                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => handleExportPayroll('excel')}>
-                    <Download className="mb-2 h-5 w-5" />
-                    <span className="text-sm">Export Payroll</span>
                   </Button>
                   <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={printAllSlips}>
                     <Printer className="mb-2 h-5 w-5" />

@@ -42,7 +42,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../../components/ui/dialog'
-import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/printExport'
+import ExportImportToolbar from '../../components/shared/ExportImportToolbar'
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -245,13 +245,8 @@ const Customers = () => {
     return colors[t] || colors.walk_in
   }
 
-  const handleExportCustomers = (type = 'excel') => {
-    if (!customers.length) {
-      showError('No customers available to export')
-      return
-    }
-
-    const rows = customers.map((customer) => ({
+  const getExportData = () => {
+    return customers.map((customer) => ({
       Name: customer.name,
       Phone: customer.phone,
       Email: customer.email || '-',
@@ -262,16 +257,6 @@ const Customers = () => {
       Status: customer.isActive ? 'Active' : 'Inactive',
       'Last Purchase': customer.lastPurchaseDate ? new Date(customer.lastPurchaseDate).toLocaleDateString() : '-'
     }))
-
-    const filename = `${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-customers`
-    const ok = type === 'pdf'
-      ? exportToPDF(rows, filename, 'Customer List')
-      : type === 'csv'
-        ? exportToCSV(rows, filename)
-        : exportToExcel(rows, filename, 'Customers')
-
-    if (ok) showSuccess(`Customers exported as ${type.toUpperCase()}`)
-    else showError('Failed to export customers')
   }
 
   return (
@@ -283,21 +268,13 @@ const Customers = () => {
             Manage customers, track outstanding dues, and collect payments
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full sm:w-auto">
-              <Download className="mr-2 h-4 w-4" />
-              Export
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Export Customers</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={() => handleExportCustomers('excel')}>Export as Excel</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExportCustomers('csv')}>Export as CSV</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => handleExportCustomers('pdf')}>Export as PDF</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          <ExportImportToolbar
+            data={getExportData()}
+            filename={`${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-customers`}
+            title="Customers"
+            company={currentCompany?.name}
+            onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['customers', currentCompany?.id] })}
+          />
       </div>
 
       <div className="grid gap-6 md:grid-cols-4">

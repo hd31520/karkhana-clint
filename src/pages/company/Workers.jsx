@@ -99,7 +99,7 @@ const debounce = (func, delay) => {
   return debouncedFunc;
 };
 
-import { exportToPDF, exportToExcel, exportToCSV } from '../../utils/printExport'
+import ExportImportToolbar from '../../components/shared/ExportImportToolbar'
 
 const Workers = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -911,29 +911,17 @@ const Workers = () => {
   }
 
   // Handle exporting all workers
-  const handleExport = async (exportFormat) => {
-    setIsDownloading(true)
-    showSuccess(`Exporting all workers as ${exportFormat.toUpperCase()}...`)
-
+  const getExportData = async () => {
     try {
-      // 1. Fetch all workers without pagination
       const response = await api.get('/workers', {
         params: {
           companyId: currentCompany?.id,
-          limit: 0 // 0 or a very large number to get all
+          limit: 0
         }
       })
-      
-      const allWorkers = response.workers
+      const allWorkers = response.workers || []
 
-      if (!allWorkers || allWorkers.length === 0) {
-        showError('No workers to export.')
-        setIsDownloading(false)
-        return
-      }
-
-      // 2. Format data for export
-      const formattedData = allWorkers.map(worker => ({
+      return allWorkers.map(worker => ({
         'ID': String(formatEmployeeId(worker.employeeId) ?? ''),
         'Name': String(getWorkerName(worker) ?? ''),
         'Email': String(getWorkerEmail(worker) ?? ''),
@@ -941,39 +929,13 @@ const Workers = () => {
         'Role': String(getWorkerRole(worker).replace('_', ' ') ?? ''),
         'Department': String(getWorkerDepartment(worker) ?? ''),
         'Designation': String(getWorkerDesignation(worker) ?? ''),
-        'Salary': `৳${getWorkerSalary(worker).toLocaleString()}`,
+        'Salary': Number(getWorkerSalary(worker) || 0),
         'Status': String(getWorkerStatus(worker) ?? ''),
         'Joining Date': String(formatDate(new Date(getWorkerJoiningDate(worker)), 'MMM dd, yyyy') ?? '')
       }))
-
-      // 3. Call the appropriate export function
-      const filename = `workers-export-${new Date().toISOString().split('T')[0]}`
-      
-      switch (exportFormat) {
-        case 'pdf': {
-          const formattedDataForPdf = formattedData.map(d => ({
-            ...d,
-            Salary: d.Salary.replace('৳', '').trim(),
-          }));
-          exportToPDF(formattedDataForPdf, filename, 'All Workers List')
-          break;
-        }
-        case 'excel':
-          exportToExcel(formattedData, filename, 'Workers')
-          break
-        case 'csv':
-          exportToCSV(formattedData, filename)
-          break
-        default:
-          showError('Invalid export format.')
-      }
-
     } catch (error) {
-      console.error('Export failed:', error)
-      const errorMessage = error?.message || 'An unexpected error occurred during export.'
-      showError(`Failed to export workers: ${errorMessage}`)
-    } finally {
-      setIsDownloading(false)
+      showError('Failed to fetch workers for export')
+      return []
     }
   }
 
@@ -1710,40 +1672,13 @@ const Workers = () => {
                     ))}
                   </SelectContent>
                 </Select>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="outline" 
-                      size="icon" 
-                      className="h-10 w-10 flex-shrink-0"
-                      disabled={isDownloading}
-                    >
-                      {isDownloading ? (
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                      ) : (
-                        <Download className="h-4 w-4" />
-                      )}
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-48">
-                    <DropdownMenuLabel>Export Options</DropdownMenuLabel>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuGroup>
-                      <DropdownMenuItem onClick={() => handleExport('pdf')}>
-                        <FileText className="mr-2 h-4 w-4" />
-                        Export as PDF
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleExport('excel')}>
-                        <FileSpreadsheet className="mr-2 h-4 w-4" />
-                        Export as Excel
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleExport('csv')}>
-                        <FileDown className="mr-2 h-4 w-4" />
-                        Export as CSV
-                      </DropdownMenuItem>
-                    </DropdownMenuGroup>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <ExportImportToolbar
+                  data={workers}
+                  filename={`workers-export-${new Date().toISOString().split('T')[0]}`}
+                  title="Workers"
+                  company={currentCompany?.name}
+                  onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['workers', currentCompany?.id] })}
+                />
               </div>
             </div>
           </div>

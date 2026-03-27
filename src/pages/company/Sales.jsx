@@ -32,7 +32,7 @@ import {
   DropdownMenuSeparator,
 } from '../../components/ui/dropdown-menu'
 import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../components/ui/dialog'
-import { exportToCSV, exportToExcel, exportToPDF } from '../../utils/printExport'
+import ExportImportToolbar from '../../components/shared/ExportImportToolbar'
 
 const Sales = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -271,13 +271,8 @@ const Sales = () => {
     return Object.values(map).sort((a, b) => b.sales - a.sales).slice(0, 5)
   }, [orders])
 
-  const handleExportSales = (type = 'excel') => {
-    if (!orders.length) {
-      showError('No sales data available to export')
-      return
-    }
-
-    const rows = orders.map((order) => ({
+  const getExportData = () => {
+    return orders.map((order) => ({
       'Order Number': order.orderNumber,
       Customer: order.customer?.name || order.customerName || '-',
       Date: order.createdAt ? new Date(order.createdAt).toLocaleString() : '-',
@@ -288,16 +283,7 @@ const Sales = () => {
       Status: order.status || '-',
       Type: order.orderType || '-'
     }))
-
-    const filename = `${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-sales`
-    const ok = type === 'pdf'
-      ? exportToPDF(rows, filename, 'Sales Report', { orientation: 'landscape' })
-      : type === 'csv'
-        ? exportToCSV(rows, filename)
-        : exportToExcel(rows, filename, 'Sales')
-
-    if (ok) showSuccess(`Sales exported as ${type.toUpperCase()}`)
-    else showError('Failed to export sales')
+  }
   }
 
   const handlePrintMemo = (memo) => {
@@ -393,21 +379,13 @@ const Sales = () => {
           <p className="text-muted-foreground">Manage orders, process sales, and track payments</p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="w-full sm:w-auto">
-                <Download className="mr-2 h-4 w-4" />
-                Export
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Export Sales</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExportSales('excel')}>Export as Excel</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportSales('csv')}>Export as CSV</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExportSales('pdf')}>Export as PDF</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            <ExportImportToolbar
+              data={getExportData()}
+              filename={`${(currentCompany?.name || 'company').replace(/\s+/g, '-').toLowerCase()}-sales`}
+              title="Sales"
+              company={currentCompany?.name}
+              onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['orders', currentCompany?.id] })}
+            />
           <Dialog>
             <DialogTrigger asChild>
               <Button className="w-full sm:w-auto">
@@ -647,10 +625,6 @@ const Sales = () => {
                   <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => memos[0] && handlePrintMemo(memos[0])}>
                     <Printer className="mb-2 h-5 w-5" />
                     <span className="text-sm">Print Memo</span>
-                  </Button>
-                  <Button variant="outline" className="h-auto flex-col items-center justify-center p-4" onClick={() => handleExportSales('excel')}>
-                    <Download className="mb-2 h-5 w-5" />
-                    <span className="text-sm">Export Sales</span>
                   </Button>
                   <Button variant="outline" className="h-auto flex-col items-center justify-center p-4">
                     <Mail className="mb-2 h-5 w-5" />

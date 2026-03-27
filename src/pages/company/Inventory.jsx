@@ -47,6 +47,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../components/ui/dialog'
+import ExportImportToolbar from '../../components/shared/ExportImportToolbar'
 
 const Inventory = () => {
   const [searchTerm, setSearchTerm] = useState('')
@@ -210,6 +211,20 @@ const Inventory = () => {
     return colors[status] || 'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-300'
   }
 
+  const getExportData = () => {
+    return products.map((product) => ({
+      Name: product.name,
+      SKU: product.sku || '-',
+      Category: product.category?.name || '-',
+      'Current Stock': Number(product.currentStock || 0),
+      'Min Level': Number(product.minStockLevel || 0),
+      'Max Level': Number(product.maxStockLevel || 0),
+      'Unit Price': Number(product.unitPrice || 0),
+      'Stock Value': Number((product.currentStock || 0) * (product.unitPrice || 0)),
+      'Last Updated': product.updatedAt ? new Date(product.updatedAt).toLocaleDateString() : '-'
+    }))
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -220,10 +235,13 @@ const Inventory = () => {
           </p>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button variant="outline" className="w-full sm:w-auto">
-            <Download className="mr-2 h-4 w-4" />
-            Export
-          </Button>
+          <ExportImportToolbar
+            data={getExportData()}
+            filename={`${(currentCompany?.name || 'company').replace(/\\s+/g, '-').toLowerCase()}-inventory`}
+            title="Inventory"
+            company={currentCompany?.name}
+            onImportSuccess={() => queryClient.invalidateQueries({ queryKey: ['inventory-products-list', currentCompany?.id] })}
+          />
           <Button className="w-full sm:w-auto">
             <RefreshCw className="mr-2 h-4 w-4" />
             Stock Count
