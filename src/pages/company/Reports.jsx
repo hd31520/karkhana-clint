@@ -48,6 +48,28 @@ const Reports = () => {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [format, setFormat] = useState('pdf')
+
+  const handleReportAction = (report, action) => {
+    if (!report || !report.fileUrl) {
+      return window.alert('Report file is not ready yet. Please generate and try again.')
+    }
+
+    if (action === 'download' || action === 'print') {
+      const win = window.open(report.fileUrl, '_blank')
+      if (!win) {
+        return window.alert('Popup blocked. Please allow popups for this site and try again.')
+      }
+      if (action === 'print') {
+        win.focus()
+      }
+      return
+    }
+
+    if (action === 'email') {
+      window.location.href = `mailto:?subject=${encodeURIComponent(report.title || 'Report')}&body=${encodeURIComponent('Open the report at ' + report.fileUrl)}`
+    }
+  }
+
   // Dynamic analytics queries
   const { data: insightsRes } = useQuery({
     queryKey: ['report-insights', currentCompany?.id],
@@ -671,15 +693,25 @@ const Reports = () => {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                onClick={() => report.fileUrl && window.open(report.fileUrl, '_blank')}
+                                onClick={() => handleReportAction(report, 'download')}
                                 disabled={!report.fileUrl}
                               >
                                 <Download className="h-4 w-4" />
                               </Button>
-                              <Button size="sm" variant="outline" disabled>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReportAction(report, 'print')}
+                                disabled={!report.fileUrl}
+                              >
                                 <Printer className="h-4 w-4" />
                               </Button>
-                              <Button size="sm" variant="outline" disabled>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleReportAction(report, 'email')}
+                                disabled={!report.fileUrl}
+                              >
                                 <Mail className="h-4 w-4" />
                               </Button>
                             </div>
