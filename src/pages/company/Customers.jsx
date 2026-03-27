@@ -83,10 +83,17 @@ const Customers = () => {
 
   const customerQueryKey = ['customers', currentCompany?.id, page, limit, searchTerm]
 
+  const getCustomerParams = () => ({
+    ...(currentCompany?.id ? { companyId: currentCompany.id } : {}),
+    page,
+    limit,
+    ...(searchTerm ? { search: searchTerm } : {}),
+  })
+
   const { data, isLoading, error } = useQuery({
     queryKey: customerQueryKey,
     queryFn: () => api.get('/customers', {
-      params: { companyId: currentCompany?.id, page, limit, search: searchTerm }
+      params: getCustomerParams(),
     }),
     enabled: !!currentCompany?.id,
     refetchOnMount: true,
@@ -106,7 +113,7 @@ const Customers = () => {
   const { data: dueSummaryData } = useQuery({
     queryKey: ['customer-due-summary', currentCompany?.id],
     queryFn: () => api.get('/customers/due-summary', {
-      params: { companyId: currentCompany?.id }
+      params: currentCompany?.id ? { companyId: currentCompany.id } : {}
     }),
     enabled: !!currentCompany?.id,
     refetchOnMount: true,
@@ -492,7 +499,7 @@ const Customers = () => {
                 {isLoading ? 'Loading customers...' : error ? 'Error loading customers' : 'No customers found'}
               </h3>
               <p className="mt-2 text-muted-foreground">
-                {error?.message || (searchTerm ? 'No customers match your search criteria.' : 'Add your first customer below.')}
+                {error?.data?.errors?.[0]?.message || error?.message || (searchTerm ? 'No customers match your search criteria.' : 'Add your first customer below.')}
               </p>
             </div>
           )}
