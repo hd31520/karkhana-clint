@@ -121,7 +121,7 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={() => {
                 const cid = currentCompany?._id || currentCompany?.id || user?.company?._id || user?.company?.id
-                navigate(cid ? `/dashboard/profile/${cid}` : '/dashboard/profile')
+                navigate(cid ? `/dashboard/profile` : '/dashboard/profile')
               }}>
                 <User className="mr-2 h-4 w-4" />
                 Profile

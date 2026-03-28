@@ -1,3 +1,4 @@
+﻿
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
@@ -11,7 +12,7 @@ import { Label } from '../../components/ui/label'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../components/ui/table'
 import { Badge } from '../../components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs'
-import { 
+import {
   DollarSign,
   CreditCard,
   Download,
@@ -122,7 +123,6 @@ const Salary = () => {
   })
 
   const workers = workersData?.workers || []
-
   // Pay Salary Mutation (Existing Record)
   const paySalaryMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/salary/${id}/pay`, data),
@@ -317,7 +317,6 @@ const Salary = () => {
     }
     salaryData.forEach((salary) => printSalarySlip(salary))
   }
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -448,12 +447,12 @@ const Salary = () => {
                         <div>
                           <div className="font-medium">{salary.worker?.user?.name || salary.worker?.employeeId || 'Employee'}</div>
                           <div className="text-sm text-muted-foreground">
-                            {salary.worker?.employeeId || '-'} • {salary.worker?.designation || '-'}
+                            {salary.worker?.employeeId || '-'} · {salary.worker?.designation || '-'}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="font-medium">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(salary.baseSalary || 0)}</TableCell>
-                      <TableCell className="text-amber-600">{`${salary.earnings?.overtime?.hours || 0}h • ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(salary.earnings?.overtime?.amount || 0)}`}</TableCell>
+                      <TableCell className="text-amber-600">{`${salary.earnings?.overtime?.hours || 0}h · ${new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(salary.earnings?.overtime?.amount || 0)}`}</TableCell>
                       <TableCell className="text-green-600">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(salary.earnings?.bonus || 0)}</TableCell>
                       <TableCell className="text-red-600">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(salary.deductions?.total || 0)}</TableCell>
                       <TableCell className="font-bold">{new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'BDT', maximumFractionDigits: 0 }).format(salary.netSalary || 0)}</TableCell>
@@ -517,7 +516,6 @@ const Salary = () => {
               )}
             </CardContent>
           </Card>
-
           <div className="grid gap-6 md:grid-cols-2">
             <Card>
               <CardHeader>
@@ -811,4 +809,3 @@ const Salary = () => {
 }
 
 export default Salary
-
