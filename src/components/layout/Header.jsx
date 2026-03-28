@@ -12,7 +12,7 @@ import {
 } from '../ui/dropdown-menu'
 import { Button } from '../ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
-import { Bell, Moon, Sun, User, Settings, LogOut, Home } from 'lucide-react'
+import { Bell, Moon, Sun, User, Settings, LogOut, Home, LayoutDashboardIcon } from 'lucide-react'
 import { Badge } from '../ui/badge'
 
 const Header = ({ admin = false, onMobileToggle = () => {} }) => {
@@ -126,9 +126,9 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
                 <User className="mr-2 h-4 w-4" />
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => navigate('/dashboard/settings')}>
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                Settings
+              <DropdownMenuItem onClick={() => navigate('/dashboard/')}>
+                <LayoutDashboardIcon className="mr-2 h-4 w-4" />
+                Dashboard
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate('/dashboard/settings')}>
                 <Settings className="mr-2 h-4 w-4" />
