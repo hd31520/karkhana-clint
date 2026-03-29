@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
@@ -15,11 +15,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import { Bell, Moon, Sun, User, Settings, LogOut, Home, LayoutDashboardIcon } from 'lucide-react'
 import { Badge } from '../ui/badge'
 
-const Header = ({ admin = false, onMobileToggle = () => {} }) => {
+const Header = ({ admin = false, onMobileToggle = () => {}, notifications: notificationsProp = [] }) => {
   const { user, logout, currentCompany, isAuthenticated } = useAuth()
   const { theme, toggleTheme } = useTheme()
   const navigate = useNavigate()
-  const [notifications] = useState(3)
+  const notifications = useMemo(() => {
+    if (notificationsProp && notificationsProp.length) return notificationsProp
+    if (user?.notifications && user.notifications.length) return user.notifications
+    return []
+  }, [notificationsProp, user?.notifications])
 
   const handleLogout = () => {
     logout()
@@ -38,7 +42,7 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
     // Hide header completely when user is not authenticated
     !isAuthenticated ? null : (
     <header className="sticky top-0 z-40 border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 dark:border-gray-800 dark:bg-gray-900/95">
-      <div className="flex min-h-16 items-center justify-between gap-3 px-3 py-2 sm:px-4 md:px-6">
+      <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 px-3 py-2 sm:px-4 md:px-6">
         <div className="flex min-w-0 items-center gap-2 sm:gap-4">
           <div className="md:hidden">
             <button onClick={onMobileToggle} className="mr-2 p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800" aria-label="Open menu">
@@ -60,11 +64,11 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
           {/* Notifications */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="relative hidden sm:inline-flex">
+              <Button variant="ghost" size="icon" className="relative inline-flex">
                 <Bell className="h-5 w-5" />
-                {notifications > 0 && (
+                {notifications.length > 0 && (
                   <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 flex items-center justify-center">
-                    {notifications}
+                    {notifications.length}
                   </Badge>
                 )}
               </Button>
@@ -73,9 +77,15 @@ const Header = ({ admin = false, onMobileToggle = () => {} }) => {
               <DropdownMenuLabel>Notifications</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <div className="max-h-60 overflow-auto">
-                <DropdownMenuItem>New worker registered</DropdownMenuItem>
-                <DropdownMenuItem>Low stock alert</DropdownMenuItem>
-                <DropdownMenuItem>Salary payment due</DropdownMenuItem>
+                {notifications.length === 0 ? (
+                  <DropdownMenuItem disabled>No new notifications</DropdownMenuItem>
+                ) : (
+                  notifications.map((n, idx) => (
+                    <DropdownMenuItem key={idx} className="whitespace-normal leading-snug">
+                      {n.title || n.message || n}
+                    </DropdownMenuItem>
+                  ))
+                )}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
