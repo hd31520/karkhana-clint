@@ -11,6 +11,7 @@ import {
   DollarSign,
   BarChart,
   Settings,
+  Calendar,
   Home,
   UserCog,
   Building,
@@ -38,6 +39,7 @@ const iconMap = {
   FileText,
   WalletCards,
   ReceiptText,
+  Calendar,
 }
 
 const Sidebar = ({ admin = false, mobileOpen, setMobileOpen }) => {
@@ -78,6 +80,7 @@ const Sidebar = ({ admin = false, mobileOpen, setMobileOpen }) => {
          item.to.includes('company-select') ? Building :
          item.to.includes('products') ? Package :
          item.to.includes('inventory') ? Layers :
+         item.to.includes('attendance') ? Calendar :
          item.to.includes('due-management') ? ReceiptText :
          item.to.includes('sales') ? ShoppingCart :
          item.to.includes('customers') ? Users :

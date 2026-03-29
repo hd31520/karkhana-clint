@@ -20,6 +20,7 @@ const PaymentResult = lazy(() => import('./pages/payments/PaymentResult'))
 const Dashboard = lazy(() => import('./pages/dashboard/Overview'))
 const CompanySelect = lazy(() => import('./pages/dashboard/CompanySelect'))
 const Profile = lazy(() => import('./pages/dashboard/Profile'))
+const Attendance = lazy(() => import('./pages/dashboard/Attendance'))
 const Workers = lazy(() => import('./pages/company/Workers'))
 const Roles = lazy(() => import('./pages/company/Roles'))
 const Products = lazy(() => import('./pages/company/Products'))
@@ -32,6 +33,7 @@ const Salary = lazy(() => import('./pages/company/Salary'))
 const Reports = lazy(() => import('./pages/company/Reports'))
 const CompanySettings = lazy(() => import('./pages/company/Settings'))
 const WorkerAttendance = lazy(() => import('./pages/company/WorkerAttendance'))
+const AttendanceOverview = lazy(() => import('./pages/company/AttendanceOverview'))
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'))
 const AdminUsers = lazy(() => import('./pages/admin/Users'))
 const AdminCompanies = lazy(() => import('./pages/admin/Companies'))
@@ -67,10 +69,12 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="company-select" element={<CompanySelect />} />
               <Route path="profile" element={<Profile />} />
+              <Route path="attendance" element={<Attendance />} />
               
               {/* Company Management Routes */}
               <Route path="workers" element={<Workers />} />
               <Route path="workers/:id/attendance" element={<WorkerAttendance />} />
+              <Route path="attendance" element={<AttendanceOverview />} />
               <Route path="roles" element={<Roles />} />
               <Route path="products" element={<Products />} />
               <Route path="products/:id" element={<ProductDetail />} />

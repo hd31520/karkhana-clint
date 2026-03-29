@@ -1638,15 +1638,15 @@ const Workers = () => {
       {/* Workers List/Table - FIXED VIEW MODE LOGIC */}
       <Card>
         <CardHeader className="p-4 sm:p-6">
-          <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center justify-between">
+          <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-lg sm:text-xl">All Workers</CardTitle>
               <CardDescription className="text-xs sm:text-sm">
                 List of all workers in your company
               </CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <div className="relative flex-1 min-w-[200px]">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 w-full sm:w-auto">
+              <div className="relative flex-1 min-w-[200px] w-full">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   ref={searchInputRef}
@@ -1656,7 +1656,7 @@ const Workers = () => {
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Select value={selectedRole} onValueChange={setSelectedRole}>
                   <SelectTrigger className="h-10 text-sm w-full sm:w-[180px]">
                     <SelectValue placeholder="Filter by role" />
@@ -2162,4 +2162,3 @@ const Workers = () => {
 }
 
 export default Workers
-

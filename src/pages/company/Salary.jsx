@@ -425,8 +425,8 @@ const Salary = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-                  <Table>
+            <CardContent className="overflow-x-auto">
+                  <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Employee</TableHead>

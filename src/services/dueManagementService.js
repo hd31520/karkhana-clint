@@ -12,6 +12,9 @@ const dueManagementService = {
   collectDue: (customerId, payload) =>
     api.post(`/customers/${customerId}/collect-due`, payload),
 
+  addOldDue: (customerId, payload) =>
+    api.post(`/customers/${customerId}/old-due`, payload),
+
   getDueMemos: (companyId, params = {}) =>
     api.get('/sales/memos', {
       params: {

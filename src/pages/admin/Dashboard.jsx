@@ -60,12 +60,12 @@ const AdminDashboard = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
           <p className="text-muted-foreground">Overview of platform statistics and activities</p>
         </div>
-        <Button variant="outline">
+        <Button variant="outline" className="w-full sm:w-auto">
           <Download className="mr-2 h-4 w-4" />
           Export Report
         </Button>
@@ -91,8 +91,8 @@ const AdminDashboard = () => {
             <CardTitle>Recent Companies</CardTitle>
             <CardDescription>Latest companies registered on the platform</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="overflow-x-auto">
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Company Name</TableHead>
@@ -134,8 +134,8 @@ const AdminDashboard = () => {
             <CardTitle>Recent Users</CardTitle>
             <CardDescription>Latest user registrations</CardDescription>
           </CardHeader>
-          <CardContent>
-            <Table>
+          <CardContent className="overflow-x-auto">
+            <Table className="min-w-[720px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Name</TableHead>

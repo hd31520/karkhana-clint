@@ -466,7 +466,7 @@ const Sales = () => {
                     Manage and track all customer orders
                   </CardDescription>
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:w-auto">
                   <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -476,14 +476,16 @@ const Sales = () => {
                       onChange={(e) => setSearchTerm(e.target.value)}
                     />
                   </div>
-                  <Button variant="outline" size="icon" className="self-end sm:self-auto">
-                    <Filter className="h-4 w-4" />
-                  </Button>
+                  <div className="flex w-full sm:w-auto sm:justify-end">
+                    <Button variant="outline" size="icon" className="w-full sm:w-10">
+                      <Filter className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Order #</TableHead>
@@ -651,8 +653,8 @@ const Sales = () => {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="min-w-[900px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Memo #</TableHead>
@@ -1123,4 +1125,3 @@ const OrderEmailDialog = ({ open, onOpenChange, order, onSend }) => {
     </Dialog>
   )
 }
-

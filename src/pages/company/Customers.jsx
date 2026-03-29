@@ -341,22 +341,29 @@ const Customers = () => {
                 View balances, due amounts, and payment activity
               </CardDescription>
             </div>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search customers..."
-                className="w-full pl-9"
-                value={searchTerm}
-                onChange={(e) => {
-                  setSearchTerm(e.target.value)
-                  setPage(1)
-                }}
-              />
+            <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search customers..."
+                  className="w-full pl-9"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setPage(1)
+                  }}
+                />
+              </div>
+              <div className="flex w-full sm:w-auto sm:justify-end">
+                <Button variant="outline" size="icon" className="w-full sm:w-10">
+                  <Download className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className="overflow-x-auto">
+          <Table className="min-w-[960px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
@@ -782,4 +789,3 @@ const Customers = () => {
 }
 
 export default Customers
-

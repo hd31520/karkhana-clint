@@ -117,7 +117,7 @@ const Roles = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Role Management</h1>
           <p className="text-muted-foreground">
@@ -126,7 +126,7 @@ const Roles = () => {
         </div>
         <Dialog>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <UserPlus className="mr-2 h-4 w-4" />
               Create Role
             </Button>
@@ -228,31 +228,33 @@ const Roles = () => {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle>All Roles</CardTitle>
               <CardDescription>
                 Manage roles and their permissions
               </CardDescription>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search roles..."
-                  className="w-64 pl-9"
+                  className="w-full pl-9"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Button variant="outline" size="icon">
-                <Filter className="h-4 w-4" />
-              </Button>
+              <div className="flex w-full sm:w-auto sm:justify-end">
+                <Button variant="outline" size="icon" className="w-full sm:w-10">
+                  <Filter className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
+        <CardContent className="overflow-x-auto">
+          <Table className="min-w-[900px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Role Name</TableHead>
@@ -414,10 +416,10 @@ const Roles = () => {
             <div className="mt-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
               <h4 className="mb-2 font-medium">Tips</h4>
               <ul className="space-y-1 text-sm text-muted-foreground">
-                <li>• Default roles cannot be deleted</li>
-                <li>• Custom roles can be modified as needed</li>
-                <li>• Assign permissions based on job requirements</li>
-                <li>• Regularly review role assignments</li>
+                <li>- Default roles cannot be deleted</li>
+                <li>- Custom roles can be modified as needed</li>
+                <li>- Assign permissions based on job requirements</li>
+                <li>- Regularly review role assignments</li>
               </ul>
             </div>
           </CardContent>

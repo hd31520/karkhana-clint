@@ -57,7 +57,9 @@ const DueManagement = () => {
   const [selectedCustomer, setSelectedCustomer] = useState(null)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [collectOpen, setCollectOpen] = useState(false)
+  const [oldDueOpen, setOldDueOpen] = useState(false)
   const [collectionForm, setCollectionForm] = useState(emptyCollectionForm)
+  const [oldDueForm, setOldDueForm] = useState({ amount: '', note: '' })
   const { currentCompany } = useAuth()
   const { showSuccess, showError } = useToast()
   const queryClient = useQueryClient()
@@ -144,6 +146,12 @@ const DueManagement = () => {
     setCollectOpen(true)
   }
 
+  const openOldDueDialog = (customer) => {
+    setSelectedCustomer(customer)
+    setOldDueForm({ amount: '', note: '' })
+    setOldDueOpen(true)
+  }
+
   const openHistoryDialog = (customer) => {
     setSelectedCustomer(customer)
     setHistoryOpen(true)
@@ -162,6 +170,28 @@ const DueManagement = () => {
         note: collectionForm.note.trim() || undefined,
         transactionId: collectionForm.transactionId.trim() || undefined,
       },
+    })
+  }
+
+  const handleAddOldDue = () => {
+    if (!selectedCustomer?._id) return
+    const amountNum = Number(oldDueForm.amount)
+    if (!amountNum || amountNum <= 0) {
+      showError('Enter a valid old due amount')
+      return
+    }
+    collectDueMutation.mutate({
+      customerId: selectedCustomer._id,
+      payload: {
+        amount: amountNum,
+        note: oldDueForm.note?.trim() || undefined,
+        type: 'old_due',
+      },
+    }, {
+      onSuccess: () => {
+        setOldDueOpen(false)
+        setOldDueForm({ amount: '', note: '' })
+      }
     })
   }
 
@@ -264,11 +294,11 @@ const DueManagement = () => {
               Existing due balances already stored in the current customer system.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="overflow-x-auto">
             {dueSummaryLoading ? (
               <div className="py-8 text-center text-muted-foreground">Loading due customers...</div>
             ) : (
-              <Table>
+              <Table className="min-w-[760px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Customer</TableHead>
@@ -293,15 +323,19 @@ const DueManagement = () => {
                       <TableCell className="font-medium text-red-600">{formatCurrency(customer.dueAmount)}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button size="sm" variant="outline" onClick={() => openHistoryDialog(customer)}>
-                            <Eye className="mr-2 h-4 w-4" />
-                            History
-                          </Button>
-                          <Button size="sm" onClick={() => openCollectDialog(customer)}>
-                            <DollarSign className="mr-2 h-4 w-4" />
-                            Collect
-                          </Button>
-                        </div>
+                      <Button size="sm" variant="outline" onClick={() => openHistoryDialog(customer)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        History
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openOldDueDialog(customer)}>
+                        <AlertCircle className="mr-2 h-4 w-4" />
+                        Add Old Due
+                      </Button>
+                      <Button size="sm" onClick={() => openCollectDialog(customer)}>
+                        <DollarSign className="mr-2 h-4 w-4" />
+                        Collect
+                      </Button>
+                    </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -469,7 +503,8 @@ const DueManagement = () => {
             {dueHistoryLoading ? (
               <div className="py-8 text-center text-muted-foreground">Loading due history...</div>
             ) : (
-              <Table>
+              <div className="overflow-x-auto">
+              <Table className="min-w-[640px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
@@ -491,6 +526,7 @@ const DueManagement = () => {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             )}
 
             {!dueHistoryLoading && (dueHistoryData?.history || []).length === 0 && (
@@ -499,6 +535,49 @@ const DueManagement = () => {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={oldDueOpen} onOpenChange={setOldDueOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Old Due</DialogTitle>
+            <DialogDescription>
+              Add a previous due balance for {selectedCustomer?.name || 'this customer'}.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="old-due-amount">Amount</Label>
+              <Input
+                id="old-due-amount"
+                type="number"
+                min="1"
+                value={oldDueForm.amount}
+                onChange={(e) => setOldDueForm((prev) => ({ ...prev, amount: e.target.value }))}
+                placeholder="Enter previous due amount"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="old-due-note">Note (optional)</Label>
+              <Input
+                id="old-due-note"
+                value={oldDueForm.note}
+                onChange={(e) => setOldDueForm((prev) => ({ ...prev, note: e.target.value }))}
+                placeholder="e.g., Carried over from legacy system"
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOldDueOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAddOldDue} disabled={collectDueMutation.isPending}>
+              {collectDueMutation.isPending ? 'Saving...' : 'Add Old Due'}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

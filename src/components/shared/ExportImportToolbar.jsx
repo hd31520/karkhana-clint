@@ -123,13 +123,14 @@ const ExportImportToolbar = ({
   }
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       {/* Export Dropdown */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
             size="sm"
+            className="min-w-[120px] sm:min-w-0"
             disabled={isExporting || !data || data.length === 0}
           >
             <Download className="mr-2 h-4 w-4" />
@@ -159,9 +160,10 @@ const ExportImportToolbar = ({
       <Button
         variant="outline"
         size="sm"
+        className="w-full sm:w-auto"
         onClick={handlePrint}
         disabled={!data || data.length === 0}
-      >
+        >
         <Printer className="mr-2 h-4 w-4" />
         Print
       </Button>
@@ -170,6 +172,7 @@ const ExportImportToolbar = ({
       <Button
         variant="outline"
         size="sm"
+        className="w-full sm:w-auto"
         onClick={handleImportClick}
         disabled={isImporting}
       >

@@ -429,7 +429,7 @@ const Inventory = () => {
                     Detailed view of all inventory items
                   </CardDescription>
                 </div>
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:gap-4 lg:w-auto">
                   <div className="relative w-full sm:w-64">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -442,14 +442,16 @@ const Inventory = () => {
                       }}
                     />
                   </div>
-                  <Button variant="outline" size="icon" className="self-end sm:self-auto">
-                    <Filter className="h-4 w-4" />
-                  </Button>
+                  <div className="flex w-full sm:w-auto sm:justify-end">
+                    <Button variant="outline" size="icon" className="w-full sm:w-10">
+                      <Filter className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="min-w-[960px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Product Code</TableHead>
@@ -578,8 +580,8 @@ const Inventory = () => {
                 Track all inventory movements and adjustments
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <Table>
+            <CardContent className="overflow-x-auto">
+              <Table className="min-w-[800px]">
                 <TableHeader>
                   <TableRow>
                     <TableHead>Date</TableHead>
@@ -698,10 +700,10 @@ const Inventory = () => {
                 <div className="mt-6 rounded-lg bg-gray-50 p-4 dark:bg-gray-800">
                   <h4 className="mb-2 font-medium">Category Tips</h4>
                   <ul className="space-y-1 text-sm text-muted-foreground">
-                    <li>• Use clear, descriptive category names</li>
-                    <li>• Create hierarchical categories for better organization</li>
-                    <li>• Regularly review and update categories</li>
-                    <li>• Assign products to appropriate categories</li>
+                    <li>- Use clear, descriptive category names</li>
+                    <li>- Create hierarchical categories for better organization</li>
+                    <li>- Regularly review and update categories</li>
+                    <li>- Assign products to appropriate categories</li>
                   </ul>
                 </div>
               </CardContent>
@@ -714,4 +716,3 @@ const Inventory = () => {
 }
 
 export default Inventory
-
