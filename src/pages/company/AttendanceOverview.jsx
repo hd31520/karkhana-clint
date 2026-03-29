@@ -22,7 +22,7 @@ const AttendanceOverview = () => {
     queryKey: ['attendance-summary', companyId, period, month, year],
     queryFn: async () => {
       if (!companyId) return null
-      const params = { companyId, period }
+      const params = { companyId, period, includeOwner: true, includeUsers: true }
       if (period === 'monthly') {
         params.month = month
         params.year = year

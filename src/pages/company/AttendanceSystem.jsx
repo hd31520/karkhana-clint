@@ -28,6 +28,8 @@ const AttendanceSystem = () => {
         companyId,
         granularity: period,
         spanYears,
+        includeOwner: true,
+        includeUsers: true,
       }
       if (period === 'weekly') params.weeks = 12
       return api.get('/workers/attendance/summary', { params })
@@ -170,7 +172,9 @@ const AttendanceSystem = () => {
           <Table className="min-w-[780px]">
             <TableHeader>
               <TableRow>
-                <TableHead>Worker</TableHead>
+                <TableHead>Person</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Email</TableHead>
                 <TableHead>Present</TableHead>
                 <TableHead>Absent</TableHead>
                 <TableHead>Late</TableHead>
@@ -192,20 +196,27 @@ const AttendanceSystem = () => {
                   </TableCell>
                 </TableRow>
               ) : (
-                summary.records.map((rec) => (
-                  <TableRow key={rec.workerId || rec.id || rec.name}>
-                    <TableCell className="font-medium">{rec.name || rec.workerName || rec.workerId}</TableCell>
-                    <TableCell>{rec.present ?? 0}</TableCell>
-                    <TableCell>{rec.absent ?? 0}</TableCell>
-                    <TableCell>{rec.late ?? 0}</TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {rec.periodLabel || period}
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {rec.updatedAt ? new Date(rec.updatedAt).toLocaleDateString() : '-'}
-                    </TableCell>
-                  </TableRow>
-                ))
+                summary.records.map((rec) => {
+                  const name = rec.name || rec.workerName || rec.fullName || rec.workerId
+                  const role = rec.role || rec.userRole || '—'
+                  const email = rec.email || rec.userEmail || '—'
+                  return (
+                    <TableRow key={`${rec.workerId || rec.id || name}-${rec.periodLabel || period}`}>
+                      <TableCell className="font-medium">{name}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{role}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{email}</TableCell>
+                      <TableCell>{rec.present ?? 0}</TableCell>
+                      <TableCell>{rec.absent ?? 0}</TableCell>
+                      <TableCell>{rec.late ?? 0}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {rec.periodLabel || period}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {rec.updatedAt ? new Date(rec.updatedAt).toLocaleDateString() : '-'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>
