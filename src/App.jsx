@@ -20,7 +20,6 @@ const PaymentResult = lazy(() => import('./pages/payments/PaymentResult'))
 const Dashboard = lazy(() => import('./pages/dashboard/Overview'))
 const CompanySelect = lazy(() => import('./pages/dashboard/CompanySelect'))
 const Profile = lazy(() => import('./pages/dashboard/Profile'))
-const Attendance = lazy(() => import('./pages/dashboard/Attendance'))
 const Workers = lazy(() => import('./pages/company/Workers'))
 const Roles = lazy(() => import('./pages/company/Roles'))
 const Products = lazy(() => import('./pages/company/Products'))
@@ -69,7 +68,6 @@ function App() {
               <Route index element={<Dashboard />} />
               <Route path="company-select" element={<CompanySelect />} />
               <Route path="profile" element={<Profile />} />
-              <Route path="attendance" element={<Attendance />} />
               
               {/* Company Management Routes */}
               <Route path="workers" element={<Workers />} />
