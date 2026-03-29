@@ -176,6 +176,7 @@ export const getNavItemsByRole = (userRole) => {
     { to: '/dashboard/roles', label: 'Roles', show: userRole !== 'worker' },
     { to: '/dashboard/products', label: 'Products', show: true },
     { to: '/dashboard/inventory', label: 'Inventory', show: true },
+    { to: '/dashboard/attendance-system', label: 'Attendance', show: true },
     { to: '/dashboard/due-management', label: 'Due Management', show: true },
     { to: '/dashboard/sales', label: 'Sales', show: true },
     { to: '/dashboard/customers', label: 'Customers', show: true },
