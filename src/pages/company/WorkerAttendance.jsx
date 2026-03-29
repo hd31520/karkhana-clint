@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import api from '../../lib/api'
 import { useAuth } from '../../contexts/AuthContext'
 import { useToast } from '../../contexts/ToastContext'
@@ -10,6 +11,7 @@ const WorkerAttendance = () => {
   const navigate = useNavigate()
   const { showSuccess, showError } = useToast()
   const { currentCompany } = useAuth()
+  const queryClient = useQueryClient()
   const [worker, setWorker] = useState(null)
   const [loading, setLoading] = useState(false)
   const [submittingStatus, setSubmittingStatus] = useState(null)
@@ -19,7 +21,7 @@ const WorkerAttendance = () => {
       if (!id) return
       setLoading(true)
       try {
-        const res = await api.get(`/workers/${id}`, { params: { companyId: currentCompany?.id } })
+        const res = await api.get(`/workers/${id}`, { params: { companyId: currentCompany?.id || currentCompany?._id } })
         setWorker(res.worker || res.data || res)
       } catch (err) {
         console.error('Failed to load worker:', err)
@@ -34,7 +36,8 @@ const WorkerAttendance = () => {
   }, [id, currentCompany, showError])
 
   const handleMarkAttendance = async (status) => {
-    if (!id || !currentCompany?.id) {
+    const companyId = currentCompany?.id || currentCompany?._id
+    if (!id || !companyId) {
       showError('Please select a company first')
       return
     }
@@ -42,9 +45,12 @@ const WorkerAttendance = () => {
     setSubmittingStatus(status)
     try {
       await api.post(`/workers/${id}/attendance`, {
-        companyId: currentCompany.id,
+        companyId,
         status
       })
+      // refresh attendance dashboards so the new mark is visible
+      queryClient.invalidateQueries({ queryKey: ['attendance-summary'] })
+      queryClient.invalidateQueries({ queryKey: ['attendance-system'] })
       showSuccess(`Marked ${status} successfully`)
     } catch (err) {
       console.error('Failed to mark attendance:', err)
