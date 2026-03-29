@@ -71,10 +71,24 @@ function App() {
               <Route path="profile" element={<Profile />} />
               
               {/* Company Management Routes */}
-              <Route path="attendance-system" element={<AttendanceSystem />} />
+              <Route
+                path="attendance-system"
+                element={
+                  <ProtectedRoute allowedRoles={['owner', 'manager', 'group_leader', 'sales_executive', 'admin']}>
+                    <AttendanceSystem />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="attendance"
+                element={
+                  <ProtectedRoute allowedRoles={['owner', 'manager', 'group_leader', 'sales_executive', 'admin']}>
+                    <AttendanceOverview />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="workers" element={<Workers />} />
               <Route path="workers/:id/attendance" element={<WorkerAttendance />} />
-              <Route path="attendance" element={<AttendanceOverview />} />
               <Route path="roles" element={<Roles />} />
               <Route path="products" element={<Products />} />
               <Route path="products/:id" element={<ProductDetail />} />
